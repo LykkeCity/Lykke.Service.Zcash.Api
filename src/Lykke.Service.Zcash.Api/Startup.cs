@@ -182,7 +182,7 @@ namespace Lykke.Service.Zcash.Api
                 throw new InvalidOperationException($"LogsConnString {dbLogConnectionString} is not filled in settings");
 
             var persistenceManager = new LykkeLogToAzureStoragePersistenceManager(
-                AzureTableStorage<LogEntity>.Create(dbLogConnectionStringManager, "Zcash.ApiLog", consoleLogger),
+                AzureTableStorage<LogEntity>.Create(dbLogConnectionStringManager, "ZcashApiLog", consoleLogger),
                 consoleLogger);
 
             // Creating slack notification service, which logs own azure queue processing messages to aggregate log

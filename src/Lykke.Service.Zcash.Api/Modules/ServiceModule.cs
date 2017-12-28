@@ -1,6 +1,7 @@
 ﻿using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using Common.Log;
+using Lykke.Service.BlockchainSignService.Client;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
 using Lykke.Service.Zcash.Api.Services;
@@ -45,6 +46,13 @@ namespace Lykke.Service.Zcash.Api.Modules
 
             builder.RegisterType<ShutdownManager>()
                 .As<IShutdownManager>();
+
+            builder.RegisterBlockchainSignServiceClient(
+                _settings.CurrentValue.BlockchainSignServiceUrl, 
+                _log);
+
+            builder.RegisterType<WalletService>()
+                .As<IWalletService>();
 
             // TODO: Add your dependencies here
 
