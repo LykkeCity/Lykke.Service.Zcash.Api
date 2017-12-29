@@ -4,19 +4,25 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
+using Lykke.Service.Zcash.Api.Core.Domain;
 using Lykke.Service.Zcash.Api.Core.Services;
 using NBitcoin;
 
-namespace Lykke.Service.Zcash.Api.Models.Transaction
+namespace Lykke.Service.Zcash.Api.Models.Wallets
 {
     [DataContract]
     public class CashoutRequest : IValidatableObject
     {
-        [Required] public string   To      { get; set; }
-        [Required] public string   AssetId { get; set; }
-        [Required] public string   Amount  { get; set; }
-                   public string[] Signers { get; set; }
-                   public Money    Money   { get; private set; }
+                    
+        [DataMember]           public Guid     OperationId { get; set; }
+        [DataMember, Required] public string   To          { get; set; }
+        [DataMember, Required] public string   AssetId     { get; set; }
+        [DataMember, Required] public string   Amount      { get; set; }
+        [DataMember]           public string[] Signers     { get; set; }
+
+        public IDestination Destination { get; private set; }
+        public Asset        Asset       { get; private set; }
+        public Money        Money       { get; private set; }
 
         [OnDeserialized]
         public void Init(StreamingContext streamingContext = default)
@@ -29,15 +35,15 @@ namespace Lykke.Service.Zcash.Api.Models.Transaction
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
-            var walletService = (IWalletService)validationContext.GetService(typeof(IWalletService));
-            if (walletService == null)
+            var blockchainService = (IBlockchainService)validationContext.GetService(typeof(IBlockchainService));
+            if (blockchainService == null)
             {
-                throw new InvalidOperationException($"Unable to get {nameof(IWalletService)} from service container");
+                throw new InvalidOperationException($"Unable to get {nameof(IBlockchainService)} from service container");
             }
 
             var result = new List<ValidationResult>();
 
-            if (!walletService.IsValid(To))
+            if (!blockchainService.IsValidAddress(To))
             {
                 result.Add(new ValidationResult("Invalud address", new[] { nameof(To) }));
             }
@@ -47,7 +53,7 @@ namespace Lykke.Service.Zcash.Api.Models.Transaction
                 result.Add(new ValidationResult("Amount must be greater than zero", new[] { nameof(Amount) }));
             }
 
-            if (Signers != null && Signers.Any(a => !walletService.IsValid(a)))
+            if (Signers != null && Signers.Any(a => !blockchainService.IsValidAddress(a)))
             {
                 result.Add(new ValidationResult("Invalud signer address(es)", new[] { nameof(Signers) }));
             }

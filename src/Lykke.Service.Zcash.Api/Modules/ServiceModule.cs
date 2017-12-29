@@ -51,8 +51,8 @@ namespace Lykke.Service.Zcash.Api.Modules
                 _settings.CurrentValue.BlockchainSignServiceUrl, 
                 _log);
 
-            builder.RegisterType<WalletService>()
-                .As<IWalletService>();
+            builder.RegisterType<BlockchainService>()
+                .As<IBlockchainService>();
 
             // TODO: Add your dependencies here
 
