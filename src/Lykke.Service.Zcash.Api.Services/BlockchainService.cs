@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Lykke.Service.BlockchainSignService.Client;
 using Lykke.Service.BlockchainSignService.Client.Models;
 using Lykke.Service.Zcash.Api.Core;
+using Lykke.Service.Zcash.Api.Core.Domain.Events;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
 using NBitcoin;
@@ -18,7 +19,8 @@ namespace Lykke.Service.Zcash.Api.Services
     public class BlockchainService : IBlockchainService
     {
         private readonly IBlockchainSignServiceClient _signServiceClient;
-        private readonly IInsightsClient _insightService;
+        private readonly IInsightClient _insightClient;
+        private readonly IPendingEventRepository _pendingEventRepository;
         private readonly ZcashApiSettings _settings;
         private readonly FeeRate _feeRate;
 
@@ -27,10 +29,15 @@ namespace Lykke.Service.Zcash.Api.Services
             ZcashNetworks.Register();
         }
 
-        public BlockchainService(IBlockchainSignServiceClient signServiceClient, IInsightsClient insightService, ZcashApiSettings settings)
+        public BlockchainService(
+            IBlockchainSignServiceClient signServiceClient, 
+            IInsightClient insightClient, 
+            IPendingEventRepository pendingEventRepository, 
+            ZcashApiSettings settings)
         {
             _signServiceClient = signServiceClient;
-            _insightService = insightService;
+            _insightClient = insightClient;
+            _pendingEventRepository = pendingEventRepository;
             _settings = settings;
             _feeRate = new FeeRate(_settings.FeePerByte * 1024);
         }
@@ -40,10 +47,9 @@ namespace Lykke.Service.Zcash.Api.Services
             return (await _signServiceClient.CreateWalletAsync()).PublicAddress;
         }
 
-        public async Task TransferAsync(BitcoinAddress from, IDestination to, Money amount, params BitcoinAddress[] signers)
+        public async Task<string> TransferAsync(BitcoinAddress from, IDestination to, Money amount, params BitcoinAddress[] signers)
         {
-            // request UTXO
-            var utxo = _insightService.GetUtxo(from)
+            var utxo = _insightClient.GetUtxo(from)
                 .OrderByDescending(x => x.Confirmations)
                 .ThenBy(x => x.Vout)
                 .ToArray();
@@ -56,15 +62,24 @@ namespace Lykke.Service.Zcash.Api.Services
 
                 foreach (var item in utxo)
                 {
-                    var value = Money.Coins(item.Amount);
+                    var coinAmount = Money.Coins(item.Amount);
+                    var coin = new Coin(
+                        new OutPoint(uint256.Parse(item.TxId), item.Vout),
+                        new TxOut(coinAmount, from));
 
-                    txBuilder.AddCoins(new Coin(new OutPoint(uint256.Parse(item.TxId), item.Vout), new TxOut(value, from)));
+                    txBuilder.AddCoins(coin);
                     fee = CalcFee(txBuilder);
-                    total += value;
+                    total += coinAmount;
 
-                    if (total >= amount + fee)
+                    if (total >= (amount + fee))
                     {
-                        await SendTransactionAsync(txBuilder.SendFees(fee), from);
+                        txBuilder.SendFees(fee);
+
+                        var signBy = new[] { from }
+                            .Concat(signers ?? Enumerable.Empty<BitcoinAddress>())
+                            .ToArray();
+
+                        return await SignAndSendAsync(txBuilder, signBy);
                     }
                 }
             }
@@ -86,19 +101,21 @@ namespace Lykke.Service.Zcash.Api.Services
             }
         }
 
-        public async Task SendTransactionAsync(TransactionBuilder txBuilder, BitcoinAddress from)
+        public async Task<string> SignAndSendAsync(TransactionBuilder txBuilder, BitcoinAddress[] signers)
         {
             var tx = txBuilder.BuildTransaction(false);
             var txData = Serializer.ToString(new { tx, coins = txBuilder.FindSpentCoins(tx) });
-            var txSignModel = await _signServiceClient.SignTransactionAsync(new SignRequestModel(new[] { from.ToString() }, txData));
-            var txSigned = Transaction.Parse(txSignModel.SignedTransaction);
+            var txSignResult = await _signServiceClient.SignTransactionAsync(new SignRequestModel(signers.Select(a => a.ToString()), txData));
+            var txSigned = Transaction.Parse(txSignResult.SignedTransaction);
 
             if (!txBuilder.Verify(txSigned, out TransactionPolicyError[] errors))
             {
                 throw new InvalidOperationException($"Invalid transaction sign: {string.Join("; ", errors.Select(e => e.ToString()))}");
             }
 
-            await _insightService.Broadcast(txSigned);
+            await _insightClient.Broadcast(txSigned);
+
+            return tx.GetHash().ToString();
         }
 
         public Money CalcFee(TransactionBuilder txBuilder)

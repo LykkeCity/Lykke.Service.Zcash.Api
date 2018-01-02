@@ -7,7 +7,7 @@ using NBitcoin;
 
 namespace Lykke.Service.Zcash.Api.Core.Services
 {
-    public interface IInsightsClient
+    public interface IInsightClient
     {
         Utxo[] GetUtxo(BitcoinAddress address);
         Task Broadcast(Transaction tx);

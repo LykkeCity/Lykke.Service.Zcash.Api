@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Lykke.Service.BlockchainSignService.Client;
+using Lykke.Service.Zcash.Api.Core.Domain.Events;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Models;
 using Lykke.Service.Zcash.Api.Models.Wallets;
@@ -16,10 +17,14 @@ namespace Lykke.Service.Zcash.Api.Controllers
     public class WalletsController : Controller
     {
         private readonly IBlockchainService _blockchainService;
+        private readonly IPendingEventRepository _pendingEventRepository;
 
-        public WalletsController(IBlockchainService blockchainService)
+        public WalletsController(
+            IBlockchainService blockchainService, 
+            IPendingEventRepository pendingEventRepository)
         {
             _blockchainService = blockchainService;
+            _pendingEventRepository = pendingEventRepository;
         }
 
         /// <summary>
@@ -53,7 +58,11 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return BadRequest(ErrorResponse.Create(ModelState));
             }
 
-            await _blockchainService.TransferAsync(from, request.Destination, request.Money, request.SignerAddresses);
+            var hash = await _blockchainService.TransferAsync(from, 
+                request.Destination, request.Money, request.SignerAddresses);
+
+            await _pendingEventRepository.Create(EventType.CashOutStarted, request.OperationId, address,
+                request.AssetId, request.Amount, request.To, hash);
 
             return Ok();
         }

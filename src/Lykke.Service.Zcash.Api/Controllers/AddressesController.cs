@@ -25,7 +25,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [HttpGet("{address}/is-valid")]
         public IsValidResponse IsValid(string address)
         {
-            return new IsValidResponse(_blockchainService.IsValidAddress(address, out var bitcoinAddress));
+            return new IsValidResponse(_blockchainService.IsValidAddress(address, out _));
         }
     }
 }

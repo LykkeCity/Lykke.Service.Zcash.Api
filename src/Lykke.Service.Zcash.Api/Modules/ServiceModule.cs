@@ -2,6 +2,7 @@
 using Autofac.Extensions.DependencyInjection;
 using Common.Log;
 using Lykke.Service.BlockchainSignService.Client;
+using Lykke.Service.Zcash.Api.AzureRepositories;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
 using Lykke.Service.Zcash.Api.Services;
@@ -47,9 +48,14 @@ namespace Lykke.Service.Zcash.Api.Modules
             builder.RegisterType<ShutdownManager>()
                 .As<IShutdownManager>();
 
-            builder.RegisterBlockchainSignServiceClient(
-                _settings.CurrentValue.SignApiUrl, 
-                _log);
+            builder.RegisterBlockchainSignServiceClient(_settings.CurrentValue.SignApiUrl, _log);
+
+            builder.RegisterType<InsightClient>()
+                .As<IInsightClient>();
+
+            builder.RegisterType<PendingEventRepository>()
+                .As<IPendingEventRepository>()
+                .WithParameter(TypedParameter.From(_settings.Nested(s => s.Db.DataConnString)));
 
             builder.RegisterType<BlockchainService>()
                 .As<IBlockchainService>();
