@@ -8,6 +8,7 @@ using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Models;
 using Lykke.Service.Zcash.Api.Models.Wallets;
 using Microsoft.AspNetCore.Mvc;
+using NBitcoin;
 
 namespace Lykke.Service.Zcash.Api.Controllers
 {
@@ -39,11 +40,10 @@ namespace Lykke.Service.Zcash.Api.Controllers
         /// <param name="request">Pay-out parameters</param>
         /// <returns>Operation identifier</returns>
         [HttpPost("{address}/cashout")]
-        [ProducesResponseType(typeof(CashoutResponse), 200)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task<IActionResult> Cashout(string address, [FromBody]CashoutRequest request)
         {
-            if (!_blockchainService.IsValidAddress(address))
+            if (!_blockchainService.IsValidAddress(address, out var from))
             {
                 return BadRequest(ErrorResponse.Create("Invalid cashout address"));
             }
@@ -53,9 +53,9 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return BadRequest(ErrorResponse.Create(ModelState));
             }
 
-            var operationId = new Guid();// await _transactionService.Transfer(address, request.To, request.Money, request.Signers);
+            await _blockchainService.TransferAsync(from, request.Destination, request.Money, request.SignerAddresses);
 
-            return Ok(new CashoutResponse(operationId));
+            return Ok();
         }
     }
 }

@@ -48,7 +48,7 @@ namespace Lykke.Service.Zcash.Api.Modules
                 .As<IShutdownManager>();
 
             builder.RegisterBlockchainSignServiceClient(
-                _settings.CurrentValue.BlockchainSignServiceUrl, 
+                _settings.CurrentValue.SignApiUrl, 
                 _log);
 
             builder.RegisterType<BlockchainService>()

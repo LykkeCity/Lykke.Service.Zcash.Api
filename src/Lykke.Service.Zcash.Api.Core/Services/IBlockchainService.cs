@@ -8,8 +8,8 @@ namespace Lykke.Service.Zcash.Api.Core.Services
     {
         Task<string> CreateTransparentWalletAsync();
 
-        Task Transfer(BitcoinAddress from, BitcoinAddress to, Money amount, params BitcoinAddress[] signers);
+        Task TransferAsync(BitcoinAddress from, IDestination to, Money amount, params BitcoinAddress[] signers);
 
-        bool IsValidAddress(string address);
+        bool IsValidAddress(string address, out BitcoinAddress bitcoinAddress);
     }
 }
