@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Lykke.Service.Zcash.Api.Core.Domain.Insight
 {
-    public class SendResponse
+    public class SendResult
     {
         public string TxId { get; set; }
     }

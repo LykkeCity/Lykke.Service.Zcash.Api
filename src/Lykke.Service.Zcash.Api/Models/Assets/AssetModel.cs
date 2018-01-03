@@ -15,9 +15,9 @@ namespace Lykke.Service.Zcash.Api.Models.Assets
             Accuracy = asset.DecimalPlaces;
         }
 
-        public string AssetId  { get; set; }
-        public string Address  { get; set; }
-        public string Name     { get; set; }
-        public int    Accuracy { get; set; }
+        public string AssetId { get; set; }
+        public string Address { get; set; }
+        public string Name { get; set; }
+        public int Accuracy { get; set; }
     }
 }

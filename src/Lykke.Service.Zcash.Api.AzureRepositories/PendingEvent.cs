@@ -34,12 +34,12 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories
             get { return Guid.Parse(RowKey); }
         }
 
-        public string    FromAddress     { get; set; }
-        public string    AssetId         { get; set; }
-        public string    Amount          { get; set; }
-        public string    ToAddress       { get; set; }
-        public string    TransactionHash { get; set; }
-        public DateTime  CreatedUtc      { get; set; }
-        public DateTime? DeletedUtc      { get; set; }
+        public string FromAddress { get; set; }
+        public string AssetId { get; set; }
+        public string Amount { get; set; }
+        public string ToAddress { get; set; }
+        public string TransactionHash { get; set; }
+        public DateTime CreatedUtc { get; set; }
+        public DateTime? DeletedUtc { get; set; }
     }
 }

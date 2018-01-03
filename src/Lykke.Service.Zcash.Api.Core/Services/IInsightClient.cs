@@ -9,7 +9,18 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 {
     public interface IInsightClient
     {
+        /// <summary>
+        /// Returns unspent transaction outputs for Zcash t-address
+        /// </summary>
+        /// <param name="address">Transaparent Zcash address</param>
+        /// <returns>Array of UTXO objects</returns>
         Task<Utxo[]> GetUtxo(BitcoinAddress address);
-        Task<SendResponse> Send(Transaction tx);
+
+        /// <summary>
+        /// Sends transaperent transaction to the Zcash blockchain
+        /// </summary>
+        /// <param name="tx">Transaparent transaction</param>
+        /// <returns>Transaction hash</returns>
+        Task<SendResult> Send(Transaction tx);
     }
 }

@@ -14,15 +14,27 @@ namespace Lykke.Service.Zcash.Api.Models.Wallets
     [DataContract]
     public class CashoutRequest : IValidatableObject
     {
-        [DataMember]           public Guid     OperationId { get; set; }
-        [DataMember, Required] public string   To          { get; set; }
-        [DataMember, Required] public string   AssetId     { get; set; }
-        [DataMember, Required] public string   Amount      { get; set; }
-        [DataMember]           public string[] Signers     { get; set; }
+        [DataMember]
+        public Guid OperationId { get; set; }
 
-        public IDestination     Destination     { get; private set; }
-        public Asset            Asset           { get; private set; }
-        public Money            Money           { get; private set; }
+        [DataMember, Required]
+        public string To { get; set; }
+
+        [DataMember, Required]
+        public string AssetId { get; set; }
+
+        [DataMember, Required]
+        public string Amount { get; set; }
+
+        [DataMember]
+        public string[] Signers { get; set; }
+
+        public IDestination Destination { get; private set; }
+
+        public Asset Asset { get; private set; }
+
+        public Money Money { get; private set; }
+
         public BitcoinAddress[] SignerAddresses { get; private set; }
 
         [OnDeserialized]
