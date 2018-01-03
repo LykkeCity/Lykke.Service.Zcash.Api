@@ -49,13 +49,15 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<string> TransferAsync(BitcoinAddress from, IDestination to, Money amount, params BitcoinAddress[] signers)
         {
-            var utxo = _insightClient.GetUtxo(from)
-                .OrderByDescending(x => x.Confirmations)
-                .ThenBy(x => x.Vout)
-                .ToArray();
+            var utxo = await _insightClient.GetUtxo(from);
 
-            if (utxo.Any())
+            if (utxo != null && utxo.Any())
             {
+                utxo = utxo
+                    .OrderByDescending(x => x.Confirmations)
+                    .ThenBy(x => x.Vout)
+                    .ToArray();
+
                 var total = Money.Zero;
                 var fee = Money.Zero;
                 var txBuilder = new TransactionBuilder().Send(to, amount).SetChange(from);
@@ -113,9 +115,9 @@ namespace Lykke.Service.Zcash.Api.Services
                 throw new InvalidOperationException($"Invalid transaction sign: {string.Join("; ", errors.Select(e => e.ToString()))}");
             }
 
-            await _insightClient.Broadcast(txSigned);
+            var txSent = await _insightClient.Send(txSigned);
 
-            return tx.GetHash().ToString();
+            return txSent.TxId;
         }
 
         public Money CalcFee(TransactionBuilder txBuilder)

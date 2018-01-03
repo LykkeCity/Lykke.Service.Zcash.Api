@@ -9,7 +9,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 {
     public interface IInsightClient
     {
-        Utxo[] GetUtxo(BitcoinAddress address);
-        Task Broadcast(Transaction tx);
+        Task<Utxo[]> GetUtxo(BitcoinAddress address);
+        Task<SendResponse> Send(Transaction tx);
     }
 }
