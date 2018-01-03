@@ -4,6 +4,7 @@
     {
         public DbSettings Db { get; set; }
         public string SignApiUrl { get; set; }
+        public string InsightUrl { get; set; }
         public string[] SourceWallets { get; set; }
         public ulong FeePerByte { get; set; }
         public ulong MinFee { get; set; }

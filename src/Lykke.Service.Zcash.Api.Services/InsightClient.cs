@@ -42,7 +42,7 @@ namespace Lykke.Service.Zcash.Api.Services
             return await Read<Utxo[]>(await _http.GetAsync($"addr/{address.ToString()}/utxo"));
         }
 
-        public async Task<T> Read<T>(HttpResponseMessage resp) where T : class
+        public async Task<T> Read<T>(HttpResponseMessage resp)
         {
             try
             {

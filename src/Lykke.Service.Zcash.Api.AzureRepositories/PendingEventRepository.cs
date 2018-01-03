@@ -26,9 +26,14 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories
             _tableStorage = AzureTableStorage<PendingEvent>.Create(connectionStringManager, "ZcashPendingEvents", log);
         }
 
-        public async Task<IEnumerable<IPendingEvent>> Get(EventType eventType, int? limit = 99999)
+        public async Task<IPendingEvent[]> Get(EventType eventType, int? limit = int.MaxValue)
         {
-            return await _tableStorage.GetTopRecordsAsync(GetPartitionKey(eventType), limit.Value);
+            return (await _tableStorage.GetTopRecordsAsync(GetPartitionKey(eventType), limit.Value)).ToArray();
+        }
+
+        public async Task<IPendingEvent[]> Get(Guid operationId)
+        {
+            return (await _tableStorage.GetDataRowKeyOnlyAsync(GetRowKey(operationId))).ToArray();
         }
 
         public async Task Delete(EventType eventType, IEnumerable<Guid> operationIds)
@@ -50,14 +55,14 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories
             }
         }
 
-        public async Task Create(EventType eventType, Guid id,
+        public async Task<IPendingEvent> Create(EventType eventType, Guid id,
             string fromAddress,
             string assetId,
             string amount,
             string toAddress,
             string transactionHash)
         {
-            await _tableStorage.InsertOrReplaceAsync(new PendingEvent(GetPartitionKey(eventType), GetRowKey(id))
+            var pendingEvent = new PendingEvent(GetPartitionKey(eventType), GetRowKey(id))
             {
                 FromAddress = fromAddress,
                 AssetId = assetId,
@@ -65,7 +70,11 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories
                 ToAddress = toAddress,
                 TransactionHash = transactionHash,
                 CreatedUtc = DateTime.Now.ToUniversalTime()
-            });
+            };
+
+            await _tableStorage.InsertOrReplaceAsync(pendingEvent);
+
+            return pendingEvent;
         }
     }
 }

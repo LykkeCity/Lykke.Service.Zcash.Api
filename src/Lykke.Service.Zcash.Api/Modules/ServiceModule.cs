@@ -51,14 +51,16 @@ namespace Lykke.Service.Zcash.Api.Modules
             builder.RegisterBlockchainSignServiceClient(_settings.CurrentValue.SignApiUrl, _log);
 
             builder.RegisterType<InsightClient>()
-                .As<IInsightClient>();
+                .As<IInsightClient>()
+                .WithParameter(TypedParameter.From(_settings.CurrentValue.InsightUrl));
 
             builder.RegisterType<PendingEventRepository>()
                 .As<IPendingEventRepository>()
                 .WithParameter(TypedParameter.From(_settings.Nested(s => s.Db.DataConnString)));
 
             builder.RegisterType<BlockchainService>()
-                .As<IBlockchainService>();
+                .As<IBlockchainService>()
+                .WithParameter(TypedParameter.From(_settings.CurrentValue));
 
             // TODO: Add your dependencies here
 
