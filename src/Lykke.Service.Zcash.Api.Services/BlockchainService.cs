@@ -49,7 +49,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<string> TransferAsync(BitcoinAddress from, IDestination to, Money amount, params BitcoinAddress[] signers)
         {
-            var utxo = await _insightClient.GetUtxo(from);
+            var utxo = await _insightClient.GetUtxoAsync(from);
 
             if (utxo != null && utxo.Any())
             {
@@ -115,7 +115,7 @@ namespace Lykke.Service.Zcash.Api.Services
                 throw new InvalidOperationException($"Invalid transaction sign: {string.Join("; ", errors.Select(e => e.ToString()))}");
             }
 
-            var txSent = await _insightClient.Send(txSigned);
+            var txSent = await _insightClient.SendTransactionAsync(txSigned);
 
             return txSent.TxId;
         }

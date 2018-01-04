@@ -38,6 +38,12 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories
 
         public async Task Delete(EventType eventType, IEnumerable<Guid> operationIds)
         {
+            if (operationIds == null ||
+                operationIds.Count() == 0)
+            {
+                return;
+            }
+
             foreach (var batch in operationIds.Batch(100))
             {
                 var batchOperation = new TableBatchOperation();

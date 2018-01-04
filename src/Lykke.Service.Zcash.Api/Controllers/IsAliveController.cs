@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using System.Net;
+using Lykke.Common.Api.Contract.Responses;
 using Lykke.Service.Zcash.Api.Core.Services;
-using Lykke.Service.Zcash.Api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.SwaggerGen;
 

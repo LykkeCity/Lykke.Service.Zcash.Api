@@ -1,14 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Lykke.Service.Zcash.Api.Core.Domain.Events
+﻿namespace Lykke.Service.Zcash.Api.Core.Domain.Events
 {
     public enum EventType
     {
-        CashIn = 1,
-        CashOutStarted = 2,
-        CashOutCompleted = 3,
-        CashOutFailed = 4
+        Cashin = 1,
+        CashoutStarted = 2,
+        CashoutCompleted = 3,
+        CashoutFailed = 4
     }
 }

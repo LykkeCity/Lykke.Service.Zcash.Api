@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Lykke.Service.Zcash.Api.Core.Domain.Insight;
 using NBitcoin;
 
@@ -14,13 +11,13 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// </summary>
         /// <param name="address">Transaparent Zcash address</param>
         /// <returns>Array of UTXO objects</returns>
-        Task<Utxo[]> GetUtxo(BitcoinAddress address);
+        Task<Utxo[]> GetUtxoAsync(BitcoinAddress address);
 
         /// <summary>
         /// Sends transaperent transaction to the Zcash blockchain
         /// </summary>
         /// <param name="tx">Transaparent transaction</param>
         /// <returns>Transaction hash</returns>
-        Task<SendResult> Send(Transaction tx);
+        Task<SendResult> SendTransactionAsync(Transaction tx);
     }
 }

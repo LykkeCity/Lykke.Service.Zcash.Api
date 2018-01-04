@@ -23,7 +23,7 @@ namespace Lykke.Service.Zcash.Api.Services
             _http.BaseAddress = new Uri(insightUrl);
         }
 
-        public async Task<SendResult> Send(Transaction tx)
+        public async Task<SendResult> SendTransactionAsync(Transaction tx)
         {
             var broadcastUrl = $"tx/send";
 
@@ -37,7 +37,7 @@ namespace Lykke.Service.Zcash.Api.Services
             return await Read<SendResult>(resp);
         }
 
-        public async Task<Utxo[]> GetUtxo(BitcoinAddress address)
+        public async Task<Utxo[]> GetUtxoAsync(BitcoinAddress address)
         {
             return await Read<Utxo[]>(await _http.GetAsync($"addr/{address.ToString()}/utxo"));
         }
