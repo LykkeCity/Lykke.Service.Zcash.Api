@@ -79,8 +79,8 @@ namespace Lykke.Service.Zcash.Api.Controllers
 
             var hash = await _blockchainService.TransferAsync(from, to, money, signers);
 
-            var pendingEvent = await _pendingEventRepository.Create(EventType.CashoutStarted, request.OperationId, address,
-                request.AssetId, request.Amount, request.To, hash);
+            var pendingEvent = await _pendingEventRepository.Create(EventType.CashoutStarted, request.OperationId, 
+                address, request.AssetId, request.Amount, request.To, hash);
 
             return CreatedAtAction(
                 nameof(PendingEventsController.Get), 

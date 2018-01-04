@@ -20,7 +20,6 @@ namespace Lykke.Service.Zcash.Api.Services
     {
         private readonly IBlockchainSignServiceClient _signServiceClient;
         private readonly IInsightClient _insightClient;
-        private readonly IPendingEventRepository _pendingEventRepository;
         private readonly ZcashApiSettings _settings;
         private readonly FeeRate _feeRate;
 
@@ -31,13 +30,11 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public BlockchainService(
             IBlockchainSignServiceClient signServiceClient, 
-            IInsightClient insightClient, 
-            IPendingEventRepository pendingEventRepository, 
+            IInsightClient insightClient,
             ZcashApiSettings settings)
         {
             _signServiceClient = signServiceClient;
             _insightClient = insightClient;
-            _pendingEventRepository = pendingEventRepository;
             _settings = settings;
             _feeRate = new FeeRate(_settings.FeePerByte * 1024);
         }
@@ -60,7 +57,13 @@ namespace Lykke.Service.Zcash.Api.Services
 
                 var total = Money.Zero;
                 var fee = Money.Zero;
-                var txBuilder = new TransactionBuilder().Send(to, amount).SetChange(from);
+                var txBuilder = new TransactionBuilder()
+                    .Send(to, amount)
+                    .SetChange(from)
+                    .SetTransactionPolicy(new StandardTransactionPolicy
+                    {
+                        CheckFee = false
+                    });
 
                 foreach (var item in utxo)
                 {
@@ -106,11 +109,11 @@ namespace Lykke.Service.Zcash.Api.Services
         public async Task<string> SignAndSendAsync(TransactionBuilder txBuilder, BitcoinAddress[] signers)
         {
             var tx = txBuilder.BuildTransaction(false);
-            var txData = Serializer.ToString(new { tx, coins = txBuilder.FindSpentCoins(tx) });
+            var txData = Serializer.ToString((tx: tx, coins: txBuilder.FindSpentCoins(tx)));
             var txSignResult = await _signServiceClient.SignTransactionAsync(new SignRequestModel(signers.Select(a => a.ToString()), txData));
             var txSigned = Transaction.Parse(txSignResult.SignedTransaction);
 
-            if (!txBuilder.Verify(txSigned, out TransactionPolicyError[] errors))
+            if (!txBuilder.Verify(txSigned, out var errors))
             {
                 throw new InvalidOperationException($"Invalid transaction sign: {string.Join("; ", errors.Select(e => e.ToString()))}");
             }
