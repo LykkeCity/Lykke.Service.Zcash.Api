@@ -16,13 +16,6 @@ namespace Lykke.Service.Zcash.Api.Controllers
     public class PendingEventsController : Controller
     {
         private readonly IPendingEventRepository _pendingEventRepository;
-        private readonly Dictionary<string, EventType> _eventTypes = new Dictionary<string, EventType>
-        {
-            ["cashin"] = EventType.Cashin,
-            ["cashout-started"] = EventType.CashoutStarted,
-            ["cashout-completed"] = EventType.CashoutCompleted,
-            ["cashout-failes"] = EventType.CashoutFailed
-        };
 
         public PendingEventsController(IPendingEventRepository pendingEventRepository)
         {

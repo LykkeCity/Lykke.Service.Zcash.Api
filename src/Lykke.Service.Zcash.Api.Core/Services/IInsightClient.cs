@@ -11,13 +11,13 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// </summary>
         /// <param name="address">Transaparent Zcash address</param>
         /// <returns>Array of UTXO objects</returns>
-        Task<Utxo[]> GetUtxoAsync(BitcoinAddress address);
+        Task<Utxo[]> GetUtxoAsync(params BitcoinAddress[] address);
 
         /// <summary>
         /// Sends transaperent transaction to the Zcash blockchain
         /// </summary>
         /// <param name="tx">Transaparent transaction</param>
         /// <returns>Transaction hash</returns>
-        Task<SendResult> SendTransactionAsync(Transaction tx);
+        Task<SendTransactionResult> SendTransactionAsync(Transaction tx);
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -23,34 +24,33 @@ namespace Lykke.Service.Zcash.Api.Services
             _http.BaseAddress = new Uri(insightUrl);
         }
 
-        public async Task<SendResult> SendTransactionAsync(Transaction tx)
+        public async Task<SendTransactionResult> SendTransactionAsync(Transaction tx)
         {
-            var broadcastUrl = $"tx/send";
-
-            var broadcastParams = new Dictionary<string, string>
-            {
-                ["rawtx"] = tx.ToHex()
-            };
-
-            var resp = await _http.PostAsync(broadcastUrl, new FormUrlEncodedContent(broadcastParams));
-
-            return await Read<SendResult>(resp);
+            return await PostAsync<SendTransactionResult>("tx/send", 
+                ("rawtx", tx.ToHex()));
         }
 
-        public async Task<Utxo[]> GetUtxoAsync(BitcoinAddress address)
+        public async Task<Utxo[]> GetUtxoAsync(params BitcoinAddress[] addresses)
         {
-            return await Read<Utxo[]>(await _http.GetAsync($"addr/{address.ToString()}/utxo"));
+            return await PostAsync<Utxo[]>("addrs/utxo", 
+                ("addrs", string.Join(",", addresses.Select(a => a.ToString()))));
         }
 
-        public async Task<T> Read<T>(HttpResponseMessage resp)
+        public async Task<T> PostAsync<T>(string url, params (string k, string v)[] pairs)
         {
+            var dict = pairs.ToDictionary(
+                t => t.k, 
+                t => t.v);
+
+            var resp = await _http.PostAsync(url, new FormUrlEncodedContent(dict));
+
             try
             {
                 resp.EnsureSuccessStatusCode();
             }
             catch (Exception ex)
             {
-                await _log.WriteErrorAsync(nameof(Read), $"Url: {resp.RequestMessage.RequestUri}", ex);
+                await _log.WriteErrorAsync(nameof(PostAsync), $"Url: {resp.RequestMessage.RequestUri}", ex);
                 throw;
             }
 
@@ -62,7 +62,7 @@ namespace Lykke.Service.Zcash.Api.Services
             }
             catch (Exception ex)
             {
-                await _log.WriteErrorAsync(nameof(Read), $"Url: {resp.RequestMessage.RequestUri}, Response: {json}", ex);
+                await _log.WriteErrorAsync(nameof(PostAsync), $"Url: {resp.RequestMessage.RequestUri}, Response: {json}", ex);
                 throw;
             }
         }
