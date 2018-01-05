@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Lykke.Service.BlockchainSignService.Client;
 using Lykke.Service.BlockchainSignService.Client.Models;
 using Lykke.Service.Zcash.Api.Core;
+using Lykke.Service.Zcash.Api.Core.Domain;
 using Lykke.Service.Zcash.Api.Core.Domain.Events;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
@@ -73,7 +74,7 @@ namespace Lykke.Service.Zcash.Api.Services
                         new TxOut(coinAmount, from));
 
                     txBuilder.AddCoins(coin);
-                    fee = CalcFee(txBuilder);
+                    fee = CalculateFee(txBuilder);
                     total += coinAmount;
 
                     if (total >= (amount + fee))
@@ -123,7 +124,7 @@ namespace Lykke.Service.Zcash.Api.Services
             return txSent.TxId;
         }
 
-        public Money CalcFee(TransactionBuilder txBuilder)
+        public Money CalculateFee(TransactionBuilder txBuilder)
         {
             if (_settings.UseDefaultFee)
             {
@@ -137,6 +138,59 @@ namespace Lykke.Service.Zcash.Api.Services
 
                 return Money.Max(Money.Min(fee, max), min);
             }
+        }
+
+        public async Task<string> CreateTransaction(BitcoinAddress from, IDestination to, Money money, bool subtractFees = false)
+        {
+            var utxo = await _insightClient.GetUtxoAsync(from);
+
+            if (utxo != null && utxo.Any())
+            {
+                utxo = utxo
+                    .OrderByDescending(x => x.Confirmations)
+                    .ThenBy(x => x.Vout)
+                    .ToArray();
+
+                var totalIn = Money.Zero;
+                var builder = new TransactionBuilder()
+                    .Send(to, money)
+                    .SetChange(from)
+                    .SetTransactionPolicy(new StandardTransactionPolicy
+                    {
+                        CheckFee = false
+                    });
+
+                if (subtractFees)
+                {
+                    builder.SubtractFees();
+                }
+
+                foreach (var item in utxo)
+                {
+                    var coin = new Coin(uint256.Parse(item.TxId), item.Vout, Money.Coins(item.Amount), from.ScriptPubKey);
+
+                    builder.AddCoins(coin);
+
+                    totalIn = totalIn + coin.Amount;
+
+                    var fee = CalculateFee(builder);
+
+                    var totalOut = subtractFees ? money - fee : money + fee;
+
+                    if (totalOut <= totalIn)
+                    {
+                        var tx = builder
+                            .SendFees(fee)
+                            .BuildTransaction(false);
+
+                        var txData = Serializer.ToString((tx: tx, coins: builder.FindSpentCoins(tx)));
+
+                        return txData;
+                    }
+                }
+            }
+
+            throw new InvalidOperationException("Insufficient funds");
         }
     }
 }
