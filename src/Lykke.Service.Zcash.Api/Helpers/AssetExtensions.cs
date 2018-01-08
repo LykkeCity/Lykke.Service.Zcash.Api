@@ -1,4 +1,5 @@
-﻿using Lykke.Service.Zcash.Api.Core.Domain;
+﻿using Lykke.Service.BlockchainApi.Contract.Assets;
+using Lykke.Service.Zcash.Api.Core.Domain;
 
 namespace Lykke.Service.BlockchainApi.Contract.Responses
 {

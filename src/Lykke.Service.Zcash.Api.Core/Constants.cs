@@ -12,6 +12,6 @@ namespace Lykke.Service.Zcash.Api.Core
             [Asset.Zec.Id] = Asset.Zec
         };
 
-        public static readonly Money DefaultFee = Money.Coins(0.0001M);
+        public static readonly decimal DefaultFee = 0.00010000M;
     }
 }

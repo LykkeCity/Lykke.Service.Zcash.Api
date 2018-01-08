@@ -32,11 +32,13 @@ namespace Lykke.Service.Zcash.Api.Tests
         private Mock<IInsightClient> insightClient = new Mock<IInsightClient>();
         private IBlockchainService blockhainService;
 
+        static BlockchainServiceTests()
+        {
+            ZcashNetworks.Register();
+        }
 
         public BlockchainServiceTests()
         {
-            ZcashNetworks.Register();
-
             signServiceClient
                 .Setup(m => m.SignTransactionAsync(It.IsAny<SignRequestModel>()))
                 .Returns((SignRequestModel r) =>
@@ -69,7 +71,7 @@ namespace Lykke.Service.Zcash.Api.Tests
                 }));
 
             insightClient
-                .Setup(m => m.SendTransactionAsync(It.IsAny<Transaction>()))
+                .Setup(m => m.BroadcastTransactionAsync(It.IsAny<Transaction>()))
                 .Returns((Transaction t) => Task.FromResult(new SendTransactionResult
                 {
                     TxId = t.GetHash().ToString()
@@ -88,7 +90,7 @@ namespace Lykke.Service.Zcash.Api.Tests
 
             // Assert
             signServiceClient.Verify(m => m.SignTransactionAsync(It.Is<SignRequestModel>(r => r.PublicAddresses.Single() == from.GetAddress().ToString())));
-            insightClient.Verify(m => m.SendTransactionAsync(It.IsAny<Transaction>()));
+            insightClient.Verify(m => m.BroadcastTransactionAsync(It.IsAny<Transaction>()));
         }
 
         [Fact]

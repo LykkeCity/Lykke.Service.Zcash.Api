@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
+using Lykke.Service.BlockchainApi.Contract.Assets;
 using Lykke.Service.BlockchainApi.Contract.Responses;
 using Lykke.Service.Zcash.Api.Core;
 using Microsoft.AspNetCore.Http;
@@ -14,13 +16,10 @@ namespace Lykke.Service.Zcash.Api.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        [ProducesResponseType(typeof(AssetsListResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(IReadOnlyList<AssetContract>), StatusCodes.Status200OK)]
         public IActionResult GetAssetList()
         {
-            return Ok(new AssetsListResponse
-            {
-                Assets = Constants.Assets.Values.Select(v => v.ToResponse()).ToArray()
-            });
+            return Ok(Constants.Assets.Values.Select(v => v.ToResponse()).ToArray());
         }
 
         /// <summary>
@@ -38,7 +37,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             }
             else
             {
-                return NotFound();
+                return NoContent();
             }
         }
     }

@@ -1,66 +1,90 @@
-﻿using System.Linq;
-using Lykke.Service.Zcash.Api.Core;
+﻿using System;
+using Lykke.Service.BlockchainApi.Contract;
+using Lykke.Service.BlockchainApi.Contract.Transactions;
 using Lykke.Service.Zcash.Api.Core.Domain;
-using Lykke.Service.Zcash.Api.Core.Services;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using NBitcoin;
 
-namespace Lykke.Service.BlockchainApi.Contract.Requests
+namespace Lykke.Service.Zcash.Api.Core.Services
 {
     public static class BlockchainServiceExtensions
     {
-        public static bool IsValidRequest(this IBlockchainService self, CashoutFromWalletRequest request, ModelStateDictionary modelState,
-            out IDestination to,
+        public static bool IsValidRequest(this IBlockchainService self, ModelStateDictionary modelState, BaseTransactionBuildingRequest request,
+            out BitcoinAddress from,
+            out BitcoinAddress to,
             out Asset asset,
-            out Money money,
-            out BitcoinAddress[] signers)
+            out Money amount)
         {
-            if (self.IsValidAddress(request.To, out var toAddress))
+            (from, to, asset, amount) = (null, null, null, null);
+
+            if (!modelState.IsValid)
+            {
+                return false;
+            }
+
+            if (self.IsValidAddress(request.FromAddress, out var fromAddress))
+            {
+                from = fromAddress;
+            }
+            else
+            {
+                modelState.AddModelError(
+                    nameof(BuildTransactionRequest.FromAddress),
+                    "Invalid sender adddress");
+            }
+
+            if (self.IsValidAddress(request.ToAddress, out var toAddress))
             {
                 to = toAddress;
             }
             else
             {
-                modelState.AddModelError(nameof(CashoutFromWalletRequest.To), "Invalid destination adddress");
-                to = null;
+                modelState.AddModelError(
+                    nameof(BuildTransactionRequest.ToAddress),
+                    "Invalid destination adddress");
             }
 
             if (!Constants.Assets.TryGetValue(request.AssetId, out asset))
             {
-                modelState.AddModelError(nameof(CashoutFromWalletRequest.AssetId), "Invalid asset");
-                asset = null;
+                modelState.AddModelError(
+                    nameof(BuildTransactionRequest.AssetId),
+                    "Invalid asset");
             }
 
-            if (decimal.TryParse(request.Amount, out var value) && asset != null)
+            try
             {
-                money = new Money(value, asset.Unit);
+                var coins = Conversions.CoinsFromContract(request.Amount, asset.DecimalPlaces);
+                amount = Money.FromUnit(coins, asset.Unit);
             }
-            else
+            catch (ConversionException ex)
             {
-                modelState.AddModelError(nameof(CashoutFromWalletRequest.Amount), "Invalid amount");
-                money = null;
+                modelState.AddModelError(
+                    nameof(BuildTransactionRequest.Amount),
+                    ex.Message);
             }
 
-            if (request.Signers != null && request.Signers.Any())
+            return modelState.IsValid;
+        }
+
+        public static bool IsValidRequest(this IBlockchainService self, ModelStateDictionary modelState, BroadcastTransactionRequest request,
+            out Transaction tx)
+        {
+            tx = null;
+
+            if (!modelState.IsValid)
             {
-                signers = request.Signers
-                    .Select(s =>
-                    {
-                        if (self.IsValidAddress(s, out var address))
-                        {
-                            return address;
-                        }
-                        else
-                        {
-                            modelState.AddModelError(nameof(CashoutFromWalletRequest.Signers), $"Invalid signer address: {s}");
-                            return null;
-                        }
-                    })
-                    .ToArray();
+                return false;
             }
-            else
+
+            try
             {
-                signers = null;
+                tx = Transaction.Parse(request.SignedTransaction);
+            }
+            catch (Exception ex)
+            {
+                modelState.AddModelError(
+                    nameof(BroadcastTransactionRequest.SignedTransaction),
+                    ex.Message);
             }
 
             return modelState.IsValid;

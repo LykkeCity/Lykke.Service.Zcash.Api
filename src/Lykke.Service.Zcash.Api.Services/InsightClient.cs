@@ -26,8 +26,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<SendTransactionResult> SendTransactionAsync(Transaction tx)
         {
-            return await PostAsync<SendTransactionResult>("tx/send", 
-                ("rawtx", tx.ToHex()));
+            return await PostAsync<SendTransactionResult>("tx/send", ("rawtx", tx.ToHex()));
         }
 
         public async Task<Utxo[]> GetUtxoAsync(params BitcoinAddress[] addresses)
