@@ -16,10 +16,13 @@ namespace Lykke.Service.Zcash.Api.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        [ProducesResponseType(typeof(IReadOnlyList<AssetContract>), StatusCodes.Status200OK)]
-        public IActionResult GetAssetList()
+        public AssetContract[] GetAssetList()
         {
-            return Ok(Constants.Assets.Values.Select(v => v.ToResponse()).ToArray());
+            var assets = Constants.Assets.Values;
+
+            return assets
+                .Select(v => v.ToAssetContract())
+                .ToArray();
         }
 
         /// <summary>
@@ -28,16 +31,15 @@ namespace Lykke.Service.Zcash.Api.Controllers
         /// <param name="id">Unit identifier</param>
         /// <returns></returns>
         [HttpGet("{id}")]
-        [ProducesResponseType(typeof(AssetResponse), StatusCodes.Status200OK)]
-        public IActionResult GetAsset(string id)
+        public AssetResponse GetAsset(string id)
         {
-            if (Constants.Assets.ContainsKey(id))
+            if (Constants.Assets.TryGetValue(id, out var asset))
             {
-                return Ok(Constants.Assets[id].ToResponse());
+                return asset.ToAssetResponse();
             }
             else
             {
-                return NoContent();
+                return null;
             }
         }
     }

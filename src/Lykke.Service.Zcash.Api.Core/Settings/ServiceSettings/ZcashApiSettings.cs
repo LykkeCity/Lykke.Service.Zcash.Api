@@ -6,10 +6,9 @@
         public string SignApiUrl { get; set; }
         public string InsightUrl { get; set; }
         public string[] SourceWallets { get; set; }
-        public decimal FeeRate { get; set; }
+        public decimal FeePerKb { get; set; }
         public decimal MinFee { get; set; }
         public decimal MaxFee { get; set; }
         public bool UseDefaultFee { get; set; }
-        public bool EnableRbf { get; set; }
     }
 }

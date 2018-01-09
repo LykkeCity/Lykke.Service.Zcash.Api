@@ -8,10 +8,9 @@ namespace Lykke.Service.Zcash.Api.Core
     {
         public static readonly IReadOnlyDictionary<string, Asset> Assets = new Dictionary<string, Asset>
         {
-            [Asset.Zatoshi.Id] = Asset.Zatoshi,
             [Asset.Zec.Id] = Asset.Zec
         };
 
-        public static readonly decimal DefaultFee = 0.00010000M;
+        public static readonly Money DefaultFee = Money.Coins(0.00010000M);
     }
 }

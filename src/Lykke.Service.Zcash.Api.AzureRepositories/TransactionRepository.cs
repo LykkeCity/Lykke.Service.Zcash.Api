@@ -58,45 +58,18 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories
             }
         }
 
-        public async Task<IPendingEvent> Create(EventType eventType, Guid id,
-            string fromAddress,
-            string assetId,
-            string amount,
-            string toAddress,
-            string transactionHash)
-        {
-            var pendingEvent = new TransactionEntity(GetPartitionKey(eventType), GetRowKey(id))
-            {
-                FromAddress = fromAddress,
-                AssetId = assetId,
-                Amount = amount,
-                ToAddress = toAddress,
-                TransactionHash = transactionHash,
-                CreatedUtc = DateTime.Now.ToUniversalTime()
-            };
-
-            await _tableStorage.InsertOrReplaceAsync(pendingEvent);
-
-            return pendingEvent;
-        }
-
-        public Task<ITransaction> Upsert(TransactionState state, Guid operationId, string fromAddress, string toAddress, string assetId, string amount, 
-            string context = null, string hash = null, string hex = null, string error = null)
-        {
-            var tx = new TransactionEntity(GetPartitionKey(), GetRowKey(operationId))
-            {
-                OperationId = operationId,
-                FromAddress = fromAddress,
-                ToAddress = toAddress,
-                AssetId = assetId,
-                Amount = amount,
-                Context = context,
-                Hash = hash,
-                Hex = hex,
-            };
-        }
 
         public Task<IReadOnlyList<ITransaction>> Get(TransactionState? state = null, int skip = 0, int take = 0)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<ITransaction> BuildAsync(Guid operationId, string fromAddress, string toAddress, string assetId, string amount, string signContext = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task Update(ITransaction tx)
         {
             throw new NotImplementedException();
         }

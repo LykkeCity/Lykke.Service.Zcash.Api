@@ -5,7 +5,7 @@ namespace Lykke.Service.BlockchainApi.Contract.Responses
 {
     public static class AssetExtensions
     {
-        public static AssetResponse ToResponse(this Asset self)
+        public static AssetResponse ToAssetResponse(this Asset self)
         {
             return new AssetResponse
             {
@@ -14,6 +14,11 @@ namespace Lykke.Service.BlockchainApi.Contract.Responses
                 AssetId = self.Id,
                 Name = self.Id
             };
+        }
+
+        public static AssetContract ToAssetContract(this Asset self)
+        {
+            return ToAssetResponse(self);
         }
     }
 }

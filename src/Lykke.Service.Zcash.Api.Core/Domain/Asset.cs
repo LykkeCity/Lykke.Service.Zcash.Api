@@ -12,7 +12,6 @@ namespace Lykke.Service.Zcash.Api.Core.Domain
 
         // static instances (constants)
 
-        public static Asset Zatoshi { get; } = new Asset("Zatoshi", 0, MoneyUnit.Satoshi);
         public static Asset Zec { get; } = new Asset("ZEC", 8, MoneyUnit.BTC);
     }
 }

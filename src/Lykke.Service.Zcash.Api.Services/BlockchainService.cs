@@ -19,7 +19,6 @@ namespace Lykke.Service.Zcash.Api.Services
 {
     public class BlockchainService : IBlockchainService
     {
-        private readonly IBlockchainSignServiceClient _signServiceClient;
         private readonly IInsightClient _insightClient;
         private readonly ZcashApiSettings _settings;
         private readonly FeeRate _feeRate;
@@ -29,35 +28,23 @@ namespace Lykke.Service.Zcash.Api.Services
             ZcashNetworks.Register();
         }
 
-        public BlockchainService(
-            IBlockchainSignServiceClient signServiceClient, 
-            IInsightClient insightClient,
-            ZcashApiSettings settings)
+        public BlockchainService(IInsightClient insightClient, ZcashApiSettings settings)
         {
-            _signServiceClient = signServiceClient;
             _insightClient = insightClient;
             _settings = settings;
-            _feeRate = new FeeRate(_settings.FeeRate.ToZec());
+            _feeRate = new FeeRate(Money.Coins(_settings.FeePerKb));
         }
 
-        public async Task<string> CreateTransparentWalletAsync()
+        public async Task<string> BuildTransactionAsync(BitcoinAddress from, BitcoinAddress to, Money amount, bool subtractFees = false)
         {
-            return (await _signServiceClient.CreateWalletAsync()).PublicAddress;
-        }
+            var utxo = (await _insightClient.GetUtxoAsync(from))
+                .OrderByDescending(x => x.Confirmations)
+                .ThenBy(x => x.Vout)
+                .ToArray();
 
-        public async Task<string> BuildTransactionAsync(BitcoinAddress from, BitcoinAddress to, Money amount, bool subtractFees = false, decimal feeFactor = decimal.One)
-        {
-            var utxo = await _insightClient.GetUtxoAsync(from);
-
-            if (utxo != null && utxo.Any())
+            if (utxo.Any())
             {
-                utxo = utxo
-                    .OrderByDescending(x => x.Confirmations)
-                    .ThenBy(x => x.Vout)
-                    .ToArray();
-
                 var totalIn = Money.Zero;
-
                 var builder = new TransactionBuilder().Send(to, amount).SetChange(from);
                 
                 if (subtractFees)
@@ -67,31 +54,23 @@ namespace Lykke.Service.Zcash.Api.Services
 
                 foreach (var item in utxo)
                 {
-                    var coin = new Coin(uint256.Parse(item.TxId), item.Vout, item.Amount.ToZec(), from.ScriptPubKey);
+                    var coin = new Coin(uint256.Parse(item.TxId), item.Vout, Money.Coins(item.Amount), from.ScriptPubKey);
 
                     builder.AddCoins(coin);
 
                     totalIn += coin.Amount;
 
-                    var fee = (CalcFee(builder) * feeFactor).ToZec();
-
+                    var fee = CalculateFee(builder);
                     var totalOut = subtractFees 
-                        ? amount - fee
+                        ? amount - fee 
                         : amount + fee;
 
                     if (totalIn >= totalOut)
                     {
                         var tx = builder.SendFees(fee).BuildTransaction(false);
+                        var context = Serializer.ToString((tx: tx, coins: builder.FindSpentCoins(tx)));
 
-                        if (_settings.EnableRbf)
-                        {
-                            foreach (var input in tx.Inputs)
-                            {
-                                input.Sequence = (uint)(feeFactor * 100);
-                            }
-                        }
-
-                        return Serializer.ToString((tx: tx, coins: builder.FindSpentCoins(tx)));
+                        return context;
                     }
                 }
             }
@@ -104,7 +83,7 @@ namespace Lykke.Service.Zcash.Api.Services
             return (await _insightClient.SendTransactionAsync(tx)).TxId;
         }
 
-        public bool IsValidAddress(string address, out BitcoinAddress bitcoinAddress)
+        public bool ValidateAddress(string address, out BitcoinAddress bitcoinAddress)
         {
             try
             {
@@ -118,7 +97,7 @@ namespace Lykke.Service.Zcash.Api.Services
             }
         }
 
-        public decimal CalcFee(TransactionBuilder txBuilder)
+        public Money CalculateFee(TransactionBuilder txBuilder)
         {
             if (_settings.UseDefaultFee)
             {
@@ -126,11 +105,11 @@ namespace Lykke.Service.Zcash.Api.Services
             }
             else
             {
-                var fee = txBuilder.EstimateFees(_feeRate).ToUnit(Asset.Zec.Unit);
-                var min = _settings.MinFee;
-                var max = _settings.MaxFee;
+                var fee = txBuilder.EstimateFees(_feeRate);
+                var min = Money.Coins(_settings.MinFee);
+                var max = Money.Coins(_settings.MaxFee);
 
-                return Math.Max(Math.Min(fee, max), min);
+                return Money.Max(Money.Min(fee, max), min);
             }
         }
     }

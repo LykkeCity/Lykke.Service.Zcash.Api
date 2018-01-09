@@ -9,7 +9,8 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 {
     public static class BlockchainServiceExtensions
     {
-        public static bool IsValidRequest(this IBlockchainService self, ModelStateDictionary modelState, BaseTransactionBuildingRequest request,
+        public static bool IsValidRequest(this IBlockchainService self, ModelStateDictionary modelState, 
+            BaseTransactionBuildingRequest request,
             out BitcoinAddress from,
             out BitcoinAddress to,
             out Asset asset,
@@ -22,7 +23,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
                 return false;
             }
 
-            if (self.IsValidAddress(request.FromAddress, out var fromAddress))
+            if (self.ValidateAddress(request.FromAddress, out var fromAddress))
             {
                 from = fromAddress;
             }
@@ -33,7 +34,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
                     "Invalid sender adddress");
             }
 
-            if (self.IsValidAddress(request.ToAddress, out var toAddress))
+            if (self.ValidateAddress(request.ToAddress, out var toAddress))
             {
                 to = toAddress;
             }
@@ -66,11 +67,9 @@ namespace Lykke.Service.Zcash.Api.Core.Services
             return modelState.IsValid;
         }
 
-        public static bool IsValidRequest(this IBlockchainService self, ModelStateDictionary modelState, BroadcastTransactionRequest request,
-            out Transaction tx)
+        public static bool IsValidRequest(this IBlockchainService self, ModelStateDictionary modelState, 
+            BroadcastTransactionRequest request)
         {
-            tx = null;
-
             if (!modelState.IsValid)
             {
                 return false;
@@ -78,7 +77,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 
             try
             {
-                tx = Transaction.Parse(request.SignedTransaction);
+                Transaction.Parse(request.SignedTransaction);
             }
             catch (Exception ex)
             {
