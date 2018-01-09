@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
 using Lykke.Service.BlockchainApi.Contract.Balances;
+using Lykke.Service.Zcash.Api.Core.Domain.Balances;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -15,8 +16,10 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [HttpGet]
         public async Task<WalletBalanceContract[]> Get([FromQuery]int skip = 0, [FromQuery]int take = 100)
         {
-            return (await _blockchainService.GetBalancesAsync(skip, take))
-                .Select(b = b.ToWalletBalanceContract())
+            var balances = await _blockchainService.GetBalancesAsync(skip, take);
+
+            return balances
+                .Select(b => b.ToWalletBalanceContract())
                 .ToArray();
         }
 

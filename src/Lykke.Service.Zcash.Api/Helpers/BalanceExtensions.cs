@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Lykke.Service.BlockchainApi.Contract;
+﻿using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Balances;
 
 namespace Lykke.Service.Zcash.Api.Core.Domain.Balances
