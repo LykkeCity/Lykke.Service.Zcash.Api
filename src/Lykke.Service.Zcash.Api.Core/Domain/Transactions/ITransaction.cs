@@ -16,10 +16,10 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Transactions
         string ToAddress { get; }
         string AssetId { get; }
         string Amount { get; }
+        string Fee { get; set; }
         string SignContext { get; set; }
-        string SignHex { get; set; }
+        string SignedTransaction { get; set; }
         string Hash { get; set; }
         string Error { get; set; }
-        string SigningContext { get; }
     }
 }

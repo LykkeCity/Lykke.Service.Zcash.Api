@@ -16,8 +16,8 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// <summary>
         /// Sends transaperent transaction to the Zcash blockchain
         /// </summary>
-        /// <param name="tx">Transaparent transaction</param>
+        /// <param name="rawTxHex">Transaparent transaction</param>
         /// <returns>Transaction hash</returns>
-        Task<SendTransactionResult> SendTransactionAsync(Transaction tx);
+        Task<SendTransactionResult> SendTransactionAsync(string rawTxHex);
     }
 }

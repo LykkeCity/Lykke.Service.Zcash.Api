@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Lykke.Service.Zcash.Api.Core.Domain;
 using Lykke.Service.Zcash.Api.Core.Domain.Balances;
 using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
 using NBitcoin;
@@ -9,7 +10,6 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 {
     public interface IBlockchainService
     {
-
         /// <summary>
         /// Builds transparent Zcash transaction
         /// </summary>
@@ -21,7 +21,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// If true then fees will be subtracted from <paramref name="amount"/>, otherwise fees will be added to <paramref name="amount"/>
         /// </param>
         /// <returns>Observable transaction</returns>
-        Task<ITransaction> BuildUnsignedTxAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, bool subtractFees);
+        Task<ITransaction> BuildUnsignedTxAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees);
 
         /// <summary>
         /// Sends transaprent transaction to the Zcash blockchain
@@ -45,21 +45,21 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// <param name="skip">Count to skip</param>
         /// <param name="take">Count to take</param>
         /// <returns>Read-only list of transactions</returns>
-        Task<IReadOnlyList<ITransaction>> GetObservableTxAsync(TransactionState state, int skip = 0, int take = 100);
+        Task<IReadOnlyList<ITransaction>> GetObservableTxsByStateAsync(TransactionState state, int skip = 0, int take = 100);
 
         /// <summary>
         /// Updates observable transaction state.
         /// </summary>
         /// <param name="tx">Transaction</param>
         /// <returns></returns>
-        Task UpdateObservableTxAsync(ITransaction tx);
+        Task UpdateObservableTxsAsync(ITransaction tx);
 
         /// <summary>
         /// Removes transactions from observation list.
         /// </summary>
         /// <param name="operationIds">Array of operation identifiers</param>
         /// <returns></returns>
-        Task DeleteObservableTxAsync(IEnumerable<Guid> operationIds);
+        Task DeleteObservableTxsAsync(IEnumerable<Guid> operationIds);
 
         /// <summary>
         /// Returns balances of observable addresses.

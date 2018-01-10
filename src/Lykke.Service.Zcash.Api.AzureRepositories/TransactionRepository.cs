@@ -37,7 +37,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories
             return (await _tableStorage.GetDataRowKeyOnlyAsync(GetRowKey(operationId))).FirstOrDefault();
         }
 
-        public async Task Delete(IEnumerable<Guid> operationIds)
+        public async Task DeleteAsync(IEnumerable<Guid> operationIds)
         {
             if (operationIds == null ||
                 operationIds.Count() == 0)
@@ -64,7 +64,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories
             throw new NotImplementedException();
         }
 
-        public Task<ITransaction> BuildAsync(Guid operationId, string fromAddress, string toAddress, string assetId, string amount, string signContext = null)
+        public Task<ITransaction> CreateAsync(Guid operationId, string fromAddress, string toAddress, string assetId, string amount, string signContext = null)
         {
             throw new NotImplementedException();
         }

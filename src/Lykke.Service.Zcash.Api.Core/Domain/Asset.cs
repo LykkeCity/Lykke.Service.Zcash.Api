@@ -1,4 +1,5 @@
-﻿using NBitcoin;
+﻿using System;
+using NBitcoin;
 
 namespace Lykke.Service.Zcash.Api.Core.Domain
 {
@@ -9,6 +10,11 @@ namespace Lykke.Service.Zcash.Api.Core.Domain
         public string Id { get; }
         public int DecimalPlaces { get; }
         public MoneyUnit Unit { get; }
+
+        public string GetRoundTrip(Money amount)
+        {
+            
+        }
 
         // static instances (constants)
 

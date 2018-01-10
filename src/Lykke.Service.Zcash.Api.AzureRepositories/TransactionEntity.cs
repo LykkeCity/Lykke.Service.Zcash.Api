@@ -33,8 +33,8 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories
         public string ToAddress { get; set; }
         public string AssetId { get; set; }
         public string Amount { get; set; }
-        public string SignContext { get; set; }
-        public string SignHex { get; set; }
+        public string SignContext { get; }
+        public string SignedTransaction { get; set; }
         public string Hash { get; set; }
         public string Error { get; set; }
     }
