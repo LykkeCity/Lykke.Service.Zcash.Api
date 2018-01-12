@@ -1,20 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+//using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AzureStorage;
 using AzureStorage.Tables;
 using Common;
 using Common.Log;
+using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain.Events;
 using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.SettingsReader;
 using Microsoft.WindowsAzure.Storage.Table;
-using MoreLinq;
+//using MoreLinq;
 
-namespace Lykke.Service.Zcash.Api.AzureRepositories
+namespace Lykke.Service.Zcash.Api.AzureRepositories.Transactions
 {
     public class TransactionRepository : ITransactionRepository
     {
@@ -25,17 +26,13 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories
         public TransactionRepository(IReloadingManager<string> connectionStringManager, ILog log)
         {
             _tableStorage = AzureTableStorage<TransactionEntity>.Create(connectionStringManager, "ZcashTransactions", log);
+
+            _tableStorage.ExecuteQueryWithPaginationAsync(
+                new TableQuery<TransactionEntity>() {  },
+                new AzureStorage.Tables.Paging.PagingInfo() {  })
         }
 
-        public async Task<IReadOnlyList<ITransaction>> Get(TransactionState state, int? limit = int.MaxValue)
-        {
-            return (await _tableStorage.GetTopRecordsAsync(GetPartitionKey(), limit.Value)).ToArray();
-        }
-
-        public async Task<ITransaction> Get(Guid operationId)
-        {
-            return (await _tableStorage.GetDataRowKeyOnlyAsync(GetRowKey(operationId))).FirstOrDefault();
-        }
+ 
 
         public async Task DeleteAsync(IEnumerable<Guid> operationIds)
         {
@@ -51,17 +48,11 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories
 
                 foreach (var id in batch)
                 {
-                    batchOperation.Delete(new TransactionEntity(GetPartitionKey(), GetRowKey(id)));
+                    batchOperation.d Delete(new TransactionEntity(GetPartitionKey(), GetRowKey(id)));
                 }
                     
                 await _tableStorage.DoBatchAsync(batchOperation);
             }
-        }
-
-
-        public Task<IReadOnlyList<ITransaction>> Get(TransactionState? state = null, int skip = 0, int take = 0)
-        {
-            throw new NotImplementedException();
         }
 
         public Task<ITransaction> CreateAsync(Guid operationId, string fromAddress, string toAddress, string assetId, string amount, string signContext = null)
@@ -72,6 +63,31 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories
         public Task Update(ITransaction tx)
         {
             throw new NotImplementedException();
+        }
+
+        public Task<ITransaction> CreateAsync(Guid operationId, string fromAddress, string toAddress, string assetId, decimal amount, decimal fee, string signContext)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task UpdateAsync(Guid operationId, DateTime? sentUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, string signedTransaction = null, string hash = null, string error = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<PagedResult<ITransaction>> GetAsync(TransactionState? state = null, string continuation = null, int take = 0)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<PagedResult<ITransaction>> GetAsync(string address, string afterHash = null, int take = 0)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task<ITransaction> GetAsync(Guid operationId)
+        {
+            return (await _tableStorage.GetDataRowKeyOnlyAsync(GetRowKey(operationId))).FirstOrDefault();
         }
     }
 }

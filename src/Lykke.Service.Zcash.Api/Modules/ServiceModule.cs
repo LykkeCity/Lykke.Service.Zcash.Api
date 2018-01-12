@@ -5,6 +5,7 @@ using Lykke.Service.BlockchainSignService.Client;
 using Lykke.Service.Zcash.Api.AzureRepositories;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
+using Lykke.Service.Zcash.Api.PeriodicalHandlers;
 using Lykke.Service.Zcash.Api.Services;
 using Lykke.SettingsReader;
 using Microsoft.Extensions.DependencyInjection;
@@ -65,6 +66,15 @@ namespace Lykke.Service.Zcash.Api.Modules
             // TODO: Add your dependencies here
 
             builder.Populate(_services);
+        }
+
+        private void RegisterPeriodicalHandlers(ContainerBuilder builder)
+        {
+            builder.RegisterType<TransactionHandler>()
+                .As<IStartable>()
+                .AutoActivate()
+                .WithParameter(TypedParameter.From(_settings.CurrentValue.IndexInterval))
+                .SingleInstance();
         }
     }
 }

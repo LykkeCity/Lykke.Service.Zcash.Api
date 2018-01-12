@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Assets;
 using Lykke.Service.BlockchainApi.Contract.Responses;
 using Lykke.Service.Zcash.Api.Core;
@@ -16,13 +17,12 @@ namespace Lykke.Service.Zcash.Api.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        public AssetContract[] GetAssetList()
+        public PaginationResponse<AssetContract> GetAssetList(
+            [FromQuery]string continuation = null, 
+            [FromQuery]int take = 100)
         {
-            var assets = Constants.Assets.Values;
-
-            return assets
-                .Select(v => v.ToAssetContract())
-                .ToArray();
+            return PaginationResponse.From(null, 
+                Constants.Assets.Values.Select(v => v.ToAssetContract()).ToArray());
         }
 
         /// <summary>

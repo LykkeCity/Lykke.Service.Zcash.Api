@@ -1,7 +1,9 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
+using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Balances;
-using Lykke.Service.Zcash.Api.Core.Domain.Balances;
+using Lykke.Service.Zcash.Api.Core;
+using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -14,13 +16,12 @@ namespace Lykke.Service.Zcash.Api.Controllers
         private readonly IBlockchainService _blockchainService;
 
         [HttpGet]
-        public async Task<WalletBalanceContract[]> Get([FromQuery]int skip = 0, [FromQuery]int take = 100)
+        public async Task<PaginationResponse<WalletBalanceContract>> Get(
+            [FromQuery]string continuation = null,
+            [FromQuery]int take = 100)
         {
-            var balances = await _blockchainService.GetBalancesAsync(skip, take);
-
-            return balances
-                .Select(b => b.ToWalletBalanceContract())
-                .ToArray();
+            return await _blockchainService.GetBalancesAsync(continuation, take)
+                .ToResponseAsync(b => b.ToWalletContract());
         }
 
         [HttpPost("{address}/observation")]
@@ -28,7 +29,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Create([FromRoute]string address)
         {
-            if (await _blockchainService.CreateObservableAddressAsync(address))
+            if (await _blockchainService.TryCreateObservableAddressAsync(AddressMonitorType.Balance, address))
                 return Ok();
             else
                 return StatusCode(StatusCodes.Status409Conflict);
@@ -39,7 +40,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> Delete([FromRoute]string address)
         {
-            if (await _blockchainService.DeleteObservableAddressAsync(address))
+            if (await _blockchainService.TryDeleteObservableAddressAsync(AddressMonitorType.Balance, address))
                 return Ok();
             else
                 return NoContent();

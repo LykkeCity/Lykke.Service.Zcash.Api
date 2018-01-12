@@ -10,5 +10,7 @@
         public decimal MinFee { get; set; }
         public decimal MaxFee { get; set; }
         public bool UseDefaultFee { get; set; }
+        public int ConfirmationLevel { get; set; }
+        public int IndexInterval { get; set; }
     }
 }

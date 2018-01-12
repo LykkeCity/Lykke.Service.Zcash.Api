@@ -4,12 +4,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain;
-using Lykke.Service.Zcash.Api.Core.Domain.Balances;
+using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
+using Lykke.Service.Zcash.Api.Services.Models;
 using NBitcoin;
 using NBitcoin.JsonConverters;
+using NBitcoin.RPC;
 using NBitcoin.Zcash;
 using ITxsRepository = Lykke.Service.Zcash.Api.Core.Services.ITransactionRepository;
 
@@ -17,7 +19,8 @@ namespace Lykke.Service.Zcash.Api.Services
 {
     public class BlockchainService : IBlockchainService
     {
-        private readonly IInsightClient _insightClient;
+        private readonly RPCClient _rpcClient;
+        private readonly IAddressRepository _addressRepository;
         private readonly ITxsRepository _txsRepository;
         private readonly ZcashApiSettings _settings;
         private readonly FeeRate _feeRate;
@@ -27,9 +30,10 @@ namespace Lykke.Service.Zcash.Api.Services
             ZcashNetworks.Register();
         }
 
-        public BlockchainService(IInsightClient insightClient, ITxsRepository txsRepository, ZcashApiSettings settings)
+        public BlockchainService(RPCClient rpcClient, IAddressRepository addressRepository, ITxsRepository txsRepository, ZcashApiSettings settings)
         {
-            _insightClient = insightClient;
+            _rpcClient = rpcClient;
+            _addressRepository = addressRepository;
             _txsRepository = txsRepository;
             _settings = settings;
             _feeRate = new FeeRate(Money.Coins(_settings.FeePerKb));
@@ -49,30 +53,13 @@ namespace Lykke.Service.Zcash.Api.Services
             }
         }
 
-        public Money CalculateFee(TransactionBuilder txBuilder)
+        public async Task<ITransaction> BuildNotSignedTxAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees)
         {
-            if (_settings.UseDefaultFee)
-            {
-                return Constants.DefaultFee;
-            }
-            else
-            {
-                var fee = txBuilder.EstimateFees(_feeRate);
-                var min = Money.Coins(_settings.MinFee);
-                var max = Money.Coins(_settings.MaxFee);
+            var utxo = await _rpcClient.ListUnspentAsync(_settings.ConfirmationLevel, int.MaxValue, from);
 
-                return Money.Max(Money.Min(fee, max), min);
-            }
-        }
-
-
-
-
-        public async Task<ITransaction> BuildUnsignedTxAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees)
-        {
-            var utxo = (await _insightClient.GetUtxoAsync(from))
-                .OrderByDescending(x => x.Confirmations)
-                .ThenBy(x => x.Vout)
+            utxo = utxo.OrderByDescending(uc => uc.Confirmations)
+                .ThenBy(uc => uc.OutPoint.Hash)
+                .ThenBy(uc => uc.OutPoint.N)
                 .ToArray();
 
             if (utxo.Any())
@@ -87,11 +74,9 @@ namespace Lykke.Service.Zcash.Api.Services
 
                 foreach (var item in utxo)
                 {
-                    var coin = new Coin(uint256.Parse(item.TxId), item.Vout, Money.Coins(item.Amount), from.ScriptPubKey);
+                    builder.AddCoins(item.AsCoin());
 
-                    builder.AddCoins(coin);
-
-                    totalIn += coin.Amount;
+                    totalIn += item.Amount;
 
                     var fee = CalculateFee(builder);
                     var totalOut = subtractFees
@@ -104,7 +89,7 @@ namespace Lykke.Service.Zcash.Api.Services
                         var signContext = Serializer.ToString((tx: tx, coins: builder.FindSpentCoins(tx)));
 
                         return await _txsRepository.CreateAsync(operationId, from.ToString(), 
-                            to.ToString(), asset.Id, amount.ToRoundTrip(asset), fee.ToRoundTrip(asset), signContext);
+                            to.ToString(), asset.Id, amount.ToUnit(asset.Unit), fee.ToUnit(asset.Unit), signContext);
                     }
                 }
             }
@@ -112,46 +97,141 @@ namespace Lykke.Service.Zcash.Api.Services
             throw new InvalidOperationException("Insufficient funds");
         }
 
-        public async Task BroadcastTxAsync(ITransaction tx, string signedTransaction)
+        public async Task BroadcastTxAsync(ITransaction tx, Transaction transaction)
         {
-            await _insightClient.SendTransactionAsync(signedTransaction);
+            try
+            {
+                await _rpcClient.SendRawTransactionAsync(transaction);
 
-            await _txsRepository.UpdateAsync(tx.OperationId, sentUtc: DateTime.Now.ToUniversalTime(), signedTransaction: signedTransaction);
+                await _txsRepository.UpdateAsync(tx.OperationId, signedTransaction: transaction.ToHex(),
+                    sentUtc: DateTime.Now.ToUniversalTime(), 
+                    hash: transaction.GetHash().ToString());
+            }
+            catch (Exception ex)
+            {
+                await _txsRepository.UpdateAsync(tx.OperationId, signedTransaction: transaction.ToHex(),
+                    failedUtc: DateTime.Now.ToUniversalTime(), 
+                    error: ex.ToString());
+            }
         }
 
-        public async Task<ITransaction> GetObservableTxAsync(Guid operationId)
+        public async Task<ITransaction> GetOperationalTxAsync(Guid operationId)
         {
-            return await _txsRepository.Get(operationId);
+            return await _txsRepository.GetAsync(operationId);
         }
 
-        public async Task<IReadOnlyList<ITransaction>> GetObservableTxsByStateAsync(TransactionState state, int skip = 0, int take = 100)
+        public async Task<PagedResult<ITransaction>> GetOperationalTxsByStateAsync(TransactionState state, string continuation = null, int take = 100)
         {
-            return await _txsRepository.Get(state, skip, take);
+            return await _txsRepository.GetAsync(state, continuation, take);
         }
 
-        public async Task UpdateObservableTxsAsync()
+        public async Task HandleTxsAsync()
         {
-            throw new NotImplementedException();
+            var rpc = await _rpcClient.SendCommandAsync(RPCOperations.listsinceblock, "", _settings.ConfirmationLevel, true);
+
+            rpc.ThrowIfError();
+
+            var res = rpc.Result.ToObject<ListedTransactionResult>();
+
+            foreach (var t in res.Transactions.Where(t => t.Confirmations >= _settings.ConfirmationLevel))
+            {
+                var txDateTime = DateTimeOffset.FromUnixTimeSeconds(t.BlockTime);
+
+                if (sent.TryGetValue(t.TxId, out var tx))
+                {
+                    _txsRepository.UpdateAsync(TransactionState.Completed, tx.OperationId, completedUtc: txDateTime.UtcDateTime);
+                }
+
+                if (t.Category == "receive" && toAddresses.TryGetValue(t.Address, out var address))
+                {
+                    _historyRepository.CreateAsync();
+                }
+
+                if (t.Category == "send" && fromAddresses.TryGetValue(t.Address, out var address))
+                {
+                    _historyRepository.CreateAsync();
+                }
+            }
+
+            _blocksRepository.SaveLastProcessedBlockHash(res.LastBlock);
         }
 
-        public async Task DeleteObservableTxsAsync(IEnumerable<Guid> operationIds)
+        public async Task DeleteOperationalTxsAsync(IEnumerable<Guid> operationIds)
         {
             await _txsRepository.DeleteAsync(operationIds);
         }
 
-        public Task<IReadOnlyList<IBalance>> GetBalancesAsync(int skip = 0, int take = 100)
+        public async Task<PagedResult<AddressBalance>> GetBalancesAsync(string continuation = null, int take = 100)
         {
-            throw new NotImplementedException();
+            var result = await _addressRepository.GetObservableAddresses(AddressMonitorType.Balance, continuation, take);
+
+            var addresses = result.Items
+                .Select(a => BitcoinAddress.Create(a.Address))
+                .ToArray();
+
+            var utxo = await _rpcClient.ListUnspentAsync(_settings.ConfirmationLevel, int.MaxValue, addresses);
+
+            var balances = utxo.GroupBy(uc => uc.Address)
+                .Select(g => new AddressBalance
+                {
+                    Asset = Asset.Zec,
+                    Address = g.Key,
+                    Balance = g.Aggregate(Money.Zero, (m, uc) => m + uc.Amount)
+                })
+                .ToArray();
+
+            return new PagedResult<AddressBalance>()
+            {
+                Continuation = result.Continuation,
+                Items = balances
+            };
         }
 
-        public Task<bool> CreateObservableAddressAsync(string address)
+        public async Task<bool> TryCreateObservableAddressAsync(AddressMonitorType monitorType, string address)
         {
-            throw new NotImplementedException();
+            var entity = _addressRepository.GetAsync(monitorType, address);
+
+            if (entity == null)
+            {
+                await _rpcClient.ImportAddressAsync(BitcoinAddress.Create(address), null, false);
+                await _addressRepository.CreateAsync(monitorType, address);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
 
-        public Task<bool> DeleteObservableAddressAsync(string address)
+        public async Task<bool> TryDeleteObservableAddressAsync(AddressMonitorType monitorType, string address)
         {
-            throw new NotImplementedException();
+            var entity = _addressRepository.GetAsync(monitorType, address);
+
+            if (entity == null)
+            {
+                await _addressRepository.DeleteAsync(monitorType, address);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public Money CalculateFee(TransactionBuilder transactionBuilder)
+        {
+            if (_settings.UseDefaultFee)
+            {
+                return Constants.DefaultFee;
+            }
+            else
+            {
+                var fee = transactionBuilder.EstimateFees(_feeRate);
+                var min = Money.Coins(_settings.MinFee);
+                var max = Money.Coins(_settings.MaxFee);
+
+                return Money.Max(Money.Min(fee, max), min);
+            }
         }
     }
 }

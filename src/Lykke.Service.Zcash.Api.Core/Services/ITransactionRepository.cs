@@ -8,11 +8,15 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 {
     public interface ITransactionRepository
     {
-        Task<ITransaction> CreateAsync(Guid operationId, string fromAddress, string toAddress, string assetId, string amount, string fee, string signContext);
-        Task UpdateAsync(Guid operationId, DateTime? sentUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, 
+        Task<ITransaction> CreateAsync(Guid operationId, string fromAddress, string toAddress, string assetId, decimal amount, decimal fee, string signContext);
+
+        Task UpdateAsync(TransactionState state, Guid operationId, DateTime? sentUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, 
             string signedTransaction = null, string hash = null, string error = null);
+
         Task DeleteAsync(IEnumerable<Guid> operationIds);
-        Task<IReadOnlyList<ITransaction>> Get(TransactionState? state = null, int skip = 0, int take = 0);
-        Task<ITransaction> Get(Guid operationId);
+
+        Task<PagedResult<ITransaction>> GetAsync(TransactionState? state = null, string continuation = null, int take = 0);
+
+        Task<ITransaction> GetAsync(Guid operationId);
     }
 }

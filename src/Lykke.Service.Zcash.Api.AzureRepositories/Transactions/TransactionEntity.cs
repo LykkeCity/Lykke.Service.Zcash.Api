@@ -8,7 +8,7 @@ using Lykke.Service.Zcash.Api.Core.Domain.Events;
 using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
 using Microsoft.WindowsAzure.Storage.Table;
 
-namespace Lykke.Service.Zcash.Api.AzureRepositories
+namespace Lykke.Service.Zcash.Api.AzureRepositories.Transactions
 {
     [ValueTypeMergingStrategy(ValueTypeMergingStrategy.UpdateAlways)]
     public class TransactionEntity : AzureTableEntity, ITransaction

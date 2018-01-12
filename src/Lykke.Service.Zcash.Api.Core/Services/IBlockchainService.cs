@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Lykke.Service.Zcash.Api.Core.Domain;
-using Lykke.Service.Zcash.Api.Core.Domain.Balances;
+using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
 using NBitcoin;
 
@@ -21,22 +21,22 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// If true then fees will be subtracted from <paramref name="amount"/>, otherwise fees will be added to <paramref name="amount"/>
         /// </param>
         /// <returns>Observable transaction</returns>
-        Task<ITransaction> BuildUnsignedTxAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees);
+        Task<ITransaction> BuildNotSignedTxAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees);
 
         /// <summary>
         /// Sends transaprent transaction to the Zcash blockchain
         /// </summary>
         /// <param name="tx">Observable transaction</param>
-        /// <param name="signedTransaction">Signed transaction in HEX format</param>
+        /// <param name="transaction">Signed transaction in HEX format</param>
         /// <returns></returns>
-        Task BroadcastTxAsync(ITransaction tx, string signedTransaction);
+        Task BroadcastTxAsync(ITransaction tx, Transaction transaction);
 
         /// <summary>
         /// Returns observable transaction by operation ID, or null if transaction not found.
         /// </summary>
         /// <param name="operationId">Operation identifier</param>
         /// <returns></returns>
-        Task<ITransaction> GetObservableTxAsync(Guid operationId);
+        Task<ITransaction> GetOperationalTxAsync(Guid operationId);
 
         /// <summary>
         /// Returns array of observable transactions with specified state.
@@ -45,21 +45,23 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// <param name="skip">Count to skip</param>
         /// <param name="take">Count to take</param>
         /// <returns>Read-only list of transactions</returns>
-        Task<IReadOnlyList<ITransaction>> GetObservableTxsByStateAsync(TransactionState state, int skip = 0, int take = 100);
+        Task<PagedResult<ITransaction>> GetOperationalTxsByStateAsync(TransactionState state, string continuation, int take = 100);
+
+        Task<ITransaction[]> GetHistoryAsync(AddressMonitorType type, string address, string afterHash = null, int take = 100);
 
         /// <summary>
-        /// Updates observable transaction state.
+        /// Updates observable transactions state and adds new transactions to history.
         /// </summary>
         /// <param name="tx">Transaction</param>
         /// <returns></returns>
-        Task UpdateObservableTxsAsync(ITransaction tx);
+        Task HandleTxsAsync();
 
         /// <summary>
         /// Removes transactions from observation list.
         /// </summary>
         /// <param name="operationIds">Array of operation identifiers</param>
         /// <returns></returns>
-        Task DeleteObservableTxsAsync(IEnumerable<Guid> operationIds);
+        Task DeleteOperationalTxsAsync(IEnumerable<Guid> operationIds);
 
         /// <summary>
         /// Returns balances of observable addresses.
@@ -67,21 +69,21 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// <param name="skip">Count to skip</param>
         /// <param name="take">Count to take</param>
         /// <returns></returns>
-        Task<IReadOnlyList<IBalance>> GetBalancesAsync(int skip = 0, int take = 100);
+        Task<PagedResult<AddressBalance>> GetBalancesAsync(string continuation = null, int take = 100);
 
         /// <summary>
         /// Adds address to observation list.
         /// </summary>
         /// <param name="address">Zcash t-address</param>
         /// <returns></returns>
-        Task<bool> CreateObservableAddressAsync(string address);
+        Task<bool> TryCreateObservableAddressAsync(AddressMonitorType monitorType, string address);
 
         /// <summary>
         /// Removes  address from observation list.
         /// </summary>
         /// <param name="address">Zcash t-address</param>
         /// <returns></returns>
-        Task<bool> DeleteObservableAddressAsync(string address);
+        Task<bool> TryDeleteObservableAddressAsync(AddressMonitorType monitorType, string address);
 
         /// <summary>
         /// Checks if specified address is valid Zcash address

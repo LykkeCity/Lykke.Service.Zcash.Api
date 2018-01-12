@@ -68,8 +68,11 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         }
 
         public static bool IsValidRequest(this IBlockchainService self, ModelStateDictionary modelState, 
-            BroadcastTransactionRequest request)
+            BroadcastTransactionRequest request,
+            out Transaction transaction)
         {
+            transaction = null;
+
             if (!modelState.IsValid)
             {
                 return false;
@@ -77,7 +80,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 
             try
             {
-                Transaction.Parse(request.SignedTransaction);
+                transaction = Transaction.Parse(request.SignedTransaction);
             }
             catch (Exception ex)
             {

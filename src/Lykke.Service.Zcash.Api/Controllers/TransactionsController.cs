@@ -6,7 +6,9 @@ using Common;
 using Common.Log;
 using Lykke.Common.Api.Contract.Responses;
 using Lykke.Common.ApiLibrary.Contract;
+using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
+using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
@@ -51,8 +53,8 @@ namespace Lykke.Service.Zcash.Api.Controllers
             }
 
             var tx =
-                (await _blockchainService.GetObservableTxAsync(request.OperationId)) ??
-                (await _blockchainService.BuildUnsignedTxAsync(request.OperationId, from, to, amount, asset, request.IncludeFee));
+                (await _blockchainService.GetOperationalTxAsync(request.OperationId)) ??
+                (await _blockchainService.BuildNotSignedTxAsync(request.OperationId, from, to, amount, asset, request.IncludeFee));
 
             return Ok(new BuildTransactionResponse
             {
@@ -67,12 +69,12 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Broadcast([FromBody]BroadcastTransactionRequest request)
         {
-            if (!ModelState.IsValid || !_blockchainService.IsValidRequest(ModelState, request))
+            if (!ModelState.IsValid || !_blockchainService.IsValidRequest(ModelState, request, out var transaction))
             {
                 return BadRequest(ErrorResponseFactory.Create(ModelState));
             }
 
-            var tx = await _blockchainService.GetObservableTxAsync(request.OperationId);
+            var tx = await _blockchainService.GetOperationalTxAsync(request.OperationId);
 
             if (tx == null)
             {
@@ -85,53 +87,45 @@ namespace Lykke.Service.Zcash.Api.Controllers
                     ErrorResponse.Create("Transaction already sent earlier"));
             }
 
-            await _blockchainService.BroadcastTxAsync(tx, request.SignedTransaction);
+            await _blockchainService.BroadcastTxAsync(tx, transaction);
             
             return Ok();
         }
 
         [HttpGet("in-progress")]
-        public async Task<InProgressTransactionContract[]> GetSent(
-            [FromQuery]int skip = 0, 
+        public async Task<PaginationResponse<InProgressTransactionContract>> GetSent(
+            [FromQuery]string continuation = null, 
             [FromQuery]int take = 100)
         {
-            var transactions = await _blockchainService.GetObservableTxsByStateAsync(TransactionState.Sent, skip, take);
-
-            return transactions
-                .Select(tx => tx.ToInProgressContract())
-                .ToArray();
+            return await _blockchainService
+                .GetOperationalTxsByStateAsync(TransactionState.Sent, continuation, take)
+                .ToResponseAsync(tx => tx.ToInProgressContract());
         }
-
 
         [HttpGet("completed")]
-        public async Task<CompletedTransactionContract[]> GetCompleted(
-            [FromQuery]int skip = 0, 
+        public async Task<PaginationResponse<CompletedTransactionContract>> GetCompleted(
+            [FromQuery]string continuation = null,
             [FromQuery]int take = 100)
         {
-            var transactions = await _blockchainService. GetObservableTxsByStateAsync(TransactionState.Completed, skip, take);
-
-            return transactions
-                .Select(tx => tx.ToCompletedContract())
-                .ToArray();
+            return await _blockchainService
+                .GetOperationalTxsByStateAsync(TransactionState.Completed, continuation, take)
+                .ToResponseAsync(tx => tx.ToCompletedContract());
         }
 
-
         [HttpGet("failed")]
-        public async Task<FailedTransactionContract[]> GetFailed(
-            [FromQuery]int skip = 0, 
+        public async Task<PaginationResponse<FailedTransactionContract>> GetFailed(
+            [FromQuery]string continuation = null,
             [FromQuery]int take = 100)
         {
-            var transactions = await _blockchainService.GetObservableTxsByStateAsync(TransactionState.Failed, skip, take);
-
-            return transactions
-                .Select(tx => tx.ToFailedContract())
-                .ToArray();
+            return await _blockchainService
+                .GetOperationalTxsByStateAsync(TransactionState.Failed, continuation, take)
+                .ToResponseAsync(tx => tx.ToFailedContract());
         }
 
         [HttpDelete]
         public async Task Delete([FromBody]Guid[] operationIds)
         {
-            await _blockchainService.DeleteObservableTxsAsync(operationIds);
+            await _blockchainService.DeleteOperationalTxsAsync(operationIds);
         }
     }
 }
