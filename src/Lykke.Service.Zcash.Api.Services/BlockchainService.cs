@@ -6,6 +6,7 @@ using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain;
 using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
+using Lykke.Service.Zcash.Api.Core.Repositories;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
 using Lykke.Service.Zcash.Api.Services.Models;
@@ -13,15 +14,18 @@ using NBitcoin;
 using NBitcoin.JsonConverters;
 using NBitcoin.RPC;
 using NBitcoin.Zcash;
-using ITxsRepository = Lykke.Service.Zcash.Api.Core.Services.ITransactionRepository;
 
 namespace Lykke.Service.Zcash.Api.Services
 {
     public class BlockchainService : IBlockchainService
     {
+        private const string TX_CATEGORY_RECEIVE = "receive";
+        private const string TX_CATEGORY_SEND = "send";
+
         private readonly RPCClient _rpcClient;
         private readonly IAddressRepository _addressRepository;
-        private readonly ITxsRepository _txsRepository;
+        private readonly IOperationRepository _operationRepository;
+        private readonly IHistoryRepository _historyRepository;
         private readonly ZcashApiSettings _settings;
         private readonly FeeRate _feeRate;
 
@@ -30,11 +34,17 @@ namespace Lykke.Service.Zcash.Api.Services
             ZcashNetworks.Register();
         }
 
-        public BlockchainService(RPCClient rpcClient, IAddressRepository addressRepository, ITxsRepository txsRepository, ZcashApiSettings settings)
+        public BlockchainService(
+            RPCClient rpcClient, 
+            IAddressRepository addressRepository, 
+            IOperationRepository operationRepository,
+            IHistoryRepository historyRepository,
+            ZcashApiSettings settings)
         {
             _rpcClient = rpcClient;
             _addressRepository = addressRepository;
-            _txsRepository = txsRepository;
+            _operationRepository = operationRepository;
+            _historyRepository = historyRepository;
             _settings = settings;
             _feeRate = new FeeRate(Money.Coins(_settings.FeePerKb));
         }
@@ -53,7 +63,7 @@ namespace Lykke.Service.Zcash.Api.Services
             }
         }
 
-        public async Task<ITransaction> BuildNotSignedTxAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees)
+        public async Task<IOperationalTransaction> BuildNotSignedTxAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees)
         {
             var utxo = await _rpcClient.ListUnspentAsync(_settings.ConfirmationLevel, int.MaxValue, from);
 
@@ -88,7 +98,7 @@ namespace Lykke.Service.Zcash.Api.Services
                         var tx = builder.SendFees(fee).BuildTransaction(sign: false);
                         var signContext = Serializer.ToString((tx: tx, coins: builder.FindSpentCoins(tx)));
 
-                        return await _txsRepository.CreateAsync(operationId, from.ToString(), 
+                        return await _operationRepository.CreateAsync(operationId, from.ToString(), 
                             to.ToString(), asset.Id, amount.ToUnit(asset.Unit), fee.ToUnit(asset.Unit), signContext);
                     }
                 }
@@ -97,75 +107,94 @@ namespace Lykke.Service.Zcash.Api.Services
             throw new InvalidOperationException("Insufficient funds");
         }
 
-        public async Task BroadcastTxAsync(ITransaction tx, Transaction transaction)
+        public async Task BroadcastTxAsync(IOperationalTransaction tx, Transaction transaction)
         {
             try
             {
                 await _rpcClient.SendRawTransactionAsync(transaction);
 
-                await _txsRepository.UpdateAsync(tx.OperationId, signedTransaction: transaction.ToHex(),
+                await _operationRepository.UpdateAsync(tx.OperationId, signedTransaction: transaction.ToHex(),
                     sentUtc: DateTime.Now.ToUniversalTime(), 
                     hash: transaction.GetHash().ToString());
             }
             catch (Exception ex)
             {
-                await _txsRepository.UpdateAsync(tx.OperationId, signedTransaction: transaction.ToHex(),
+                await _operationRepository.UpdateAsync(tx.OperationId, signedTransaction: transaction.ToHex(),
                     failedUtc: DateTime.Now.ToUniversalTime(), 
                     error: ex.ToString());
             }
         }
 
-        public async Task<ITransaction> GetOperationalTxAsync(Guid operationId)
+        public async Task<IOperationalTransaction> GetOperationalTxAsync(Guid operationId)
         {
-            return await _txsRepository.GetAsync(operationId);
+            return await _operationRepository.GetAsync(operationId);
         }
 
-        public async Task<PagedResult<ITransaction>> GetOperationalTxsByStateAsync(TransactionState state, string continuation = null, int take = 100)
+        public async Task<bool> TryDeleteOperationalTxAsync(Guid operationId)
         {
-            return await _txsRepository.GetAsync(state, continuation, take);
+            return await _operationRepository.DeleteIfExistAsync(operationId);
         }
 
-        public async Task HandleTxsAsync()
+        public async Task HandleHistoryAsync()
         {
-            var rpc = await _rpcClient.SendCommandAsync(RPCOperations.listsinceblock, "", _settings.ConfirmationLevel, true);
+            var lastProcessedBlock = _blocksRepository.GetLastProcessedBlockHash();
 
-            rpc.ThrowIfError();
+            var command = await _rpcClient.SendCommandAsync(RPCOperations.listsinceblock, 
+                lastProcessedBlock, _settings.ConfirmationLevel, true);
 
-            var res = rpc.Result.ToObject<ListedTransactionResult>();
+            command.ThrowIfError();
 
-            foreach (var t in res.Transactions.Where(t => t.Confirmations >= _settings.ConfirmationLevel))
+            var lastTxsResult = command.Result.ToObject<LastTransactionResult>();
+
+            var lastTxs = from t in lastTxsResult.Transactions
+                          where t.Confirmations >= _settings.ConfirmationLevel
+                          where t.Category == TX_CATEGORY_RECEIVE || t.Category == TX_CATEGORY_SEND
+                          group t by new { t.Category, t.Address, t.TxId, t.BlockTime } into g
+                          select new
+                          {
+                              g.Key.Category,
+                              ToAddress = g.Key.Address,
+                              Hash = g.Key.TxId,
+                              Amount = Math.Abs(g.Sum(t => t.Amount)),
+                              Fee = Math.Abs(g.Sum(t => t.Fee) ?? 0M),
+                              Timestamp = DateTimeOffset.FromUnixTimeSeconds(g.Key.BlockTime).UtcDateTime
+                          };
+
+            var sentTxs = (await _operationRepository.GetByStateAsync(TransactionState.Sent))
+                .ToDictionary(tx => tx.Hash, t => t);
+
+            foreach (var t in lastTxs)
             {
-                var txDateTime = DateTimeOffset.FromUnixTimeSeconds(t.BlockTime);
-
-                if (sent.TryGetValue(t.TxId, out var tx))
+                if (sentTxs.TryGetValue(t.Hash, out var sent))
                 {
-                    _txsRepository.UpdateAsync(TransactionState.Completed, tx.OperationId, completedUtc: txDateTime.UtcDateTime);
+                    await _operationRepository.UpdateAsync(sent.OperationId, completedUtc: t.Timestamp);
                 }
 
-                if (t.Category == "receive" && toAddresses.TryGetValue(t.Address, out var address))
+                if (await IsObservableAsync(t.Category, t.ToAddress))
                 {
-                    _historyRepository.CreateAsync();
-                }
+                    var fromAddresses = await GetFromAddresses(t.Hash, t.ToAddress);
+                    var from = fromAddresses.FirstOrDefault();
+                    var operationId = sent?.OperationId ?? Guid.Empty;
+                    var assetId = Asset.Zec.Id;
 
-                if (t.Category == "send" && fromAddresses.TryGetValue(t.Address, out var address))
-                {
-                    _historyRepository.CreateAsync();
+                    await _historyRepository.CreateAsync(operationId,
+                        t.Hash, t.Timestamp, from, t.ToAddress, t.Amount, t.Fee, assetId);
                 }
             }
 
-            _blocksRepository.SaveLastProcessedBlockHash(res.LastBlock);
+            _blocksRepository.SaveLastProcessedBlockHash(lastTxs.LastBlock);
         }
 
-        public async Task DeleteOperationalTxsAsync(IEnumerable<Guid> operationIds)
+        public async Task<ITransaction[]> GetHistoryAsync(AddressMonitorType type, string address, string afterHash = null, int take = 100)
         {
-            await _txsRepository.DeleteAsync(operationIds);
+            return await _historyRepository.GetAsync(type, address, afterHash, take);
         }
 
-        public async Task<PagedResult<AddressBalance>> GetBalancesAsync(string continuation = null, int take = 100)
+        public async Task<(string continuation, AddressBalance[] items)> GetBalancesAsync(string continuation = null, int take = 100)
         {
-            var result = await _addressRepository.GetObservableAddresses(AddressMonitorType.Balance, continuation, take);
+            var result = await _addressRepository.GetAsync(AddressMonitorType.Balance, continuation, take);
 
-            var addresses = result.Items
+            var addresses = result.items
                 .Select(a => BitcoinAddress.Create(a.Address))
                 .ToArray();
 
@@ -180,42 +209,30 @@ namespace Lykke.Service.Zcash.Api.Services
                 })
                 .ToArray();
 
-            return new PagedResult<AddressBalance>()
-            {
-                Continuation = result.Continuation,
-                Items = balances
-            };
+            return(result.continuation, balances);
         }
 
         public async Task<bool> TryCreateObservableAddressAsync(AddressMonitorType monitorType, string address)
         {
-            var entity = _addressRepository.GetAsync(monitorType, address);
+            await _rpcClient.ImportAddressAsync(BitcoinAddress.Create(address), null, false);
 
-            if (entity == null)
-            {
-                await _rpcClient.ImportAddressAsync(BitcoinAddress.Create(address), null, false);
-                await _addressRepository.CreateAsync(monitorType, address);
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            return await _addressRepository.CreateIfNotExistsAsync(monitorType, address);
         }
 
         public async Task<bool> TryDeleteObservableAddressAsync(AddressMonitorType monitorType, string address)
         {
-            var entity = _addressRepository.GetAsync(monitorType, address);
+            return await _addressRepository.DeleteIfExistAsync(monitorType, address));
+        }
 
-            if (entity == null)
-            {
-                await _addressRepository.DeleteAsync(monitorType, address);
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+        public async Task<bool> IsObservableAsync(string category, string address)
+        {
+            var monitorType = category == TX_CATEGORY_RECEIVE 
+                ? AddressMonitorType.To 
+                : AddressMonitorType.From;
+
+            var entity = await _addressRepository.GetAsync(monitorType, address);
+
+            return entity != null;
         }
 
         public Money CalculateFee(TransactionBuilder transactionBuilder)
@@ -232,6 +249,23 @@ namespace Lykke.Service.Zcash.Api.Services
 
                 return Money.Max(Money.Min(fee, max), min);
             }
+        }
+
+        public async Task<string[]> GetFromAddresses(string txHash, string toAddress)
+        {
+            var addresses = new List<string>();
+            var network = BitcoinAddress.Create(toAddress).Network;
+            var curr = await _rpcClient.GetRawTransactionAsync(uint256.Parse(txHash));
+
+            foreach (var input in curr.Inputs)
+            {
+                var prev = await _rpcClient.GetRawTransactionAsync(input.PrevOut.Hash);
+                var addr = prev.Outputs[input.PrevOut.N].ScriptPubKey.GetDestinationAddress(network);
+
+                addresses.Add(addr.ToString());
+            }
+
+            return addresses.ToArray();
         }
     }
 }

@@ -20,8 +20,11 @@ namespace Lykke.Service.Zcash.Api.Controllers
             [FromQuery]string continuation = null,
             [FromQuery]int take = 100)
         {
-            return await _blockchainService.GetBalancesAsync(continuation, take)
-                .ToResponseAsync(b => b.ToWalletContract());
+            var result = await _blockchainService.GetBalancesAsync(continuation, take);
+
+            return PaginationResponse.From(
+                result.continuation,
+                result.items.Select(b => b.ToWalletContract()).ToArray());
         }
 
         [HttpPost("{address}/observation")]

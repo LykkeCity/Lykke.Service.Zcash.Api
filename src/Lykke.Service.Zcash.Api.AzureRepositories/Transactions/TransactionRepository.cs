@@ -10,6 +10,7 @@ using Common.Log;
 using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain.Events;
 using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
+using Lykke.Service.Zcash.Api.Core.Repositories;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.SettingsReader;
 using Microsoft.WindowsAzure.Storage.Table;
@@ -17,10 +18,10 @@ using Microsoft.WindowsAzure.Storage.Table;
 
 namespace Lykke.Service.Zcash.Api.AzureRepositories.Transactions
 {
-    public class TransactionRepository : ITransactionRepository
+    public class TransactionRepository : IOperationRepository
     {
         private INoSQLTableStorage<TransactionEntity> _tableStorage;
-        private static string GetPartitionKey() => "tx";
+        private static string GetPartitionKey() => "Operation";
         private static string GetRowKey(Guid operationId) => operationId.ToString();
 
         public TransactionRepository(IReloadingManager<string> connectionStringManager, ILog log)
@@ -34,25 +35,9 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Transactions
 
  
 
-        public async Task DeleteAsync(IEnumerable<Guid> operationIds)
+        public async Task<bool> DeleteIfExistAsync(Guid operationId)
         {
-            if (operationIds == null ||
-                operationIds.Count() == 0)
-            {
-                return;
-            }
-
-            foreach (var batch in operationIds.Batch(100))
-            {
-                var batchOperation = new TableBatchOperation();
-
-                foreach (var id in batch)
-                {
-                    batchOperation.d Delete(new TransactionEntity(GetPartitionKey(), GetRowKey(id)));
-                }
-                    
-                await _tableStorage.DoBatchAsync(batchOperation);
-            }
+            return await _tableStorage.DeleteIfExistAsync(GetPartitionKey(), GetRowKey(operationId));
         }
 
         public Task<ITransaction> CreateAsync(Guid operationId, string fromAddress, string toAddress, string assetId, string amount, string signContext = null)

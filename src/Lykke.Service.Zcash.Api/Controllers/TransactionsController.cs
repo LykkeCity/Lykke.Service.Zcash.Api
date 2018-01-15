@@ -92,40 +92,22 @@ namespace Lykke.Service.Zcash.Api.Controllers
             return Ok();
         }
 
-        [HttpGet("in-progress")]
-        public async Task<PaginationResponse<InProgressTransactionContract>> GetSent(
-            [FromQuery]string continuation = null, 
-            [FromQuery]int take = 100)
+        [HttpGet("broadcast/{operationId}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        public async Task<BroadcastedTransactionResponse> GetBroadcasted([FromRoute]Guid operationId)
         {
-            return await _blockchainService
-                .GetOperationalTxsByStateAsync(TransactionState.Sent, continuation, take)
-                .ToResponseAsync(tx => tx.ToInProgressContract());
+            return (await _blockchainService.GetOperationalTxAsync(operationId))?.ToBroadcastedResponse();
         }
 
-        [HttpGet("completed")]
-        public async Task<PaginationResponse<CompletedTransactionContract>> GetCompleted(
-            [FromQuery]string continuation = null,
-            [FromQuery]int take = 100)
+        [HttpDelete("broadcast/{operationId}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        public async Task<IActionResult> DeleteBroadcasted([FromRoute]Guid operationId)
         {
-            return await _blockchainService
-                .GetOperationalTxsByStateAsync(TransactionState.Completed, continuation, take)
-                .ToResponseAsync(tx => tx.ToCompletedContract());
-        }
-
-        [HttpGet("failed")]
-        public async Task<PaginationResponse<FailedTransactionContract>> GetFailed(
-            [FromQuery]string continuation = null,
-            [FromQuery]int take = 100)
-        {
-            return await _blockchainService
-                .GetOperationalTxsByStateAsync(TransactionState.Failed, continuation, take)
-                .ToResponseAsync(tx => tx.ToFailedContract());
-        }
-
-        [HttpDelete]
-        public async Task Delete([FromBody]Guid[] operationIds)
-        {
-            await _blockchainService.DeleteOperationalTxsAsync(operationIds);
+            if (await _blockchainService.TryDeleteOperationalTxAsync(operationId))
+                return Ok();
+            else
+                return NoContent();
         }
     }
 }

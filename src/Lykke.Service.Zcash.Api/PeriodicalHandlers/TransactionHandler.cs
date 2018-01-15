@@ -24,7 +24,7 @@ namespace Lykke.Service.Zcash.Api.PeriodicalHandlers
         {
             try
             {
-                await _blockchainService.HandleTxsAsync();
+                await _blockchainService.HandleHistoryAsync();
             }
             catch (Exception ex)
             {

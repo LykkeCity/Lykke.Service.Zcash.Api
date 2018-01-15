@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
 using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
+using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

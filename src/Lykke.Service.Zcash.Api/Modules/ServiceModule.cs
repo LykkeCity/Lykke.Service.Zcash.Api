@@ -56,7 +56,7 @@ namespace Lykke.Service.Zcash.Api.Modules
                 .WithParameter(TypedParameter.From(_settings.CurrentValue.InsightUrl));
 
             builder.RegisterType<TransactionRepository>()
-                .As<ITransactionRepository>()
+                .As<IOperationRepository>()
                 .WithParameter(TypedParameter.From(_settings.Nested(s => s.Db.DataConnString)));
 
             builder.RegisterType<BlockchainService>()

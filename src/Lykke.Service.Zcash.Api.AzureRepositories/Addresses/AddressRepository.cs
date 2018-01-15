@@ -8,6 +8,7 @@ using Common.Log;
 using Lykke.AzureStorage.Tables.Paging;
 using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
+using Lykke.Service.Zcash.Api.Core.Repositories;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.SettingsReader;
 using Microsoft.WindowsAzure.Storage.Table;
@@ -25,21 +26,21 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
             _tableStorage = AzureTableStorage<AddressEntity>.Create(connectionStringManager, "ZcashAddresses", log);
         }
 
-        public async Task CreateAsync(AddressMonitorType monitorType, string address)
+        public async Task<bool> CreateIfNotExistsAsync(AddressMonitorType monitorType, string address)
         {
-            await _tableStorage.InsertOrReplaceAsync(new AddressEntity
+            return await _tableStorage.CreateIfNotExistsAsync(new AddressEntity
             {
                 PartitionKey = GetPartitionKey(monitorType),
                 RowKey = GetRowKey(address)
             });
         }
 
-        public async Task DeleteAsync(AddressMonitorType monitorType, string address)
+        public async Task<bool> DeleteIfExistAsync(AddressMonitorType monitorType, string address)
         {
             var partitionKKey = GetPartitionKey(monitorType);
             var rowKey = GetRowKey(address);
 
-            await _tableStorage.DeleteAsync(partitionKKey, rowKey);
+            return await _tableStorage.DeleteIfExistAsync(partitionKKey, rowKey);
         }
 
         public async Task<IAddress> GetAsync(AddressMonitorType monitorType, string address)
@@ -50,7 +51,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
             return await _tableStorage.GetDataAsync(partitionKKey, rowKey);
         }
 
-        public async Task<PagedResult<IAddress>> GetObservableAddresses(AddressMonitorType monitorType, string continuation = null, int take = 100)
+        public async Task<(string continuation, IAddress[] items)> GetAsync(AddressMonitorType monitorType, string continuation = null, int take = 100)
         {
             var pagingInfo = new PagingInfo { ElementCount = take };
             
@@ -61,11 +62,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
 
             var res = await _tableStorage.ExecuteQueryWithPaginationAsync(query, pagingInfo);
 
-            return new PagedResult<IAddress>()
-            {
-                Continuation = pagingInfo.Encode(),
-                Items = res.ToArray()
-            };
+            return (pagingInfo.Encode(), res.ToArray());
         }
     }
 }

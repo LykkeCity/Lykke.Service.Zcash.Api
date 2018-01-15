@@ -12,5 +12,9 @@ namespace Lykke.Service.Zcash.Api.Core
         };
 
         public static readonly Money DefaultFee = Money.Coins(0.00010000M);
+
+        public const string ADDRESS_CATEGORY_RECEIVE = "receive";
+
+        public const string ADDRESS_CATEGORY_SEND = "send";
     }
 }

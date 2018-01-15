@@ -4,9 +4,9 @@ using System.Text;
 
 namespace Lykke.Service.Zcash.Api.Services.Models
 {
-    public class ListedTransactionResult
+    public class LastTransactionResult
     {
-        public ListedTransaction[] Transactions { get; set; }
+        public LastTransaction[] Transactions { get; set; }
         public string LastBlock { get; set; }
     }
 }
