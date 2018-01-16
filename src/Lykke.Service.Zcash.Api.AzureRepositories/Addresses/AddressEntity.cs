@@ -9,10 +9,26 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
 {
     public class AddressEntity : AzureTableEntity, IAddress
     {
-        [IgnoreProperty]
-        public AddressMonitorType MonitorType { get => (AddressMonitorType)Enum.Parse(typeof(AddressMonitorType), PartitionKey); }
+        public AddressEntity()
+        {
+        }
+
+        public AddressEntity(string partitionKey, string rowKey)
+        {
+            PartitionKey = partitionKey;
+            RowKey = rowKey;
+        }
 
         [IgnoreProperty]
-        public string Address { get => RowKey; }
+        public AddressMonitorType MonitorType
+        {
+            get => (AddressMonitorType)Enum.Parse(typeof(AddressMonitorType), PartitionKey);
+        }
+
+        [IgnoreProperty]
+        public string Address
+        {
+            get => RowKey;
+        }
     }
 }

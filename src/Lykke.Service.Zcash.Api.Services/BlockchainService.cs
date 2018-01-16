@@ -2,11 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Common.Log;
 using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain;
 using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
-using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
-using Lykke.Service.Zcash.Api.Core.Repositories;
+using Lykke.Service.Zcash.Api.Core.Domain.History;
+using Lykke.Service.Zcash.Api.Core.Domain.Operations;
+using Lykke.Service.Zcash.Api.Core.Domain.Settings;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
 using Lykke.Service.Zcash.Api.Services.Models;
@@ -14,20 +16,25 @@ using NBitcoin;
 using NBitcoin.JsonConverters;
 using NBitcoin.RPC;
 using NBitcoin.Zcash;
+using Newtonsoft.Json;
 
 namespace Lykke.Service.Zcash.Api.Services
 {
     public class BlockchainService : IBlockchainService
     {
-        private const string TX_CATEGORY_RECEIVE = "receive";
-        private const string TX_CATEGORY_SEND = "send";
-
+        private readonly ILog _log;
         private readonly RPCClient _rpcClient;
         private readonly IAddressRepository _addressRepository;
         private readonly IOperationRepository _operationRepository;
         private readonly IHistoryRepository _historyRepository;
+        private readonly ISettingsRepository _settingsRepository;
         private readonly ZcashApiSettings _settings;
-        private readonly FeeRate _feeRate;
+
+        private readonly Dictionary<string, AddressMonitorType> _transactionCategories = new Dictionary<string, AddressMonitorType>
+        {
+            ["receive"] = AddressMonitorType.To,
+            ["send"] = AddressMonitorType.From
+        };
 
         static BlockchainService()
         {
@@ -35,18 +42,21 @@ namespace Lykke.Service.Zcash.Api.Services
         }
 
         public BlockchainService(
+            ILog log,
             RPCClient rpcClient, 
             IAddressRepository addressRepository, 
             IOperationRepository operationRepository,
             IHistoryRepository historyRepository,
+            ISettingsRepository settingsRepository,
             ZcashApiSettings settings)
         {
+            _log = log;
             _rpcClient = rpcClient;
             _addressRepository = addressRepository;
             _operationRepository = operationRepository;
             _historyRepository = historyRepository;
+            _settingsRepository = settingsRepository;
             _settings = settings;
-            _feeRate = new FeeRate(Money.Coins(_settings.FeePerKb));
         }
 
         public bool ValidateAddress(string address, out BitcoinAddress bitcoinAddress)
@@ -65,11 +75,14 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<IOperationalTransaction> BuildNotSignedTxAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees)
         {
-            var utxo = await _rpcClient.ListUnspentAsync(_settings.ConfirmationLevel, int.MaxValue, from);
+            await RefreshSettingsAsync();
 
-            utxo = utxo.OrderByDescending(uc => uc.Confirmations)
-                .ThenBy(uc => uc.OutPoint.Hash)
-                .ThenBy(uc => uc.OutPoint.N)
+            var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent, _settings.ConfirmationLevel, int.MaxValue, from);
+
+            utxo = utxo
+                .OrderByDescending(uc => uc.Confirmations)
+                .ThenBy(uc => uc.TxId)
+                .ThenBy(uc => uc.Vout)
                 .ToArray();
 
             if (utxo.Any())
@@ -86,7 +99,7 @@ namespace Lykke.Service.Zcash.Api.Services
                 {
                     builder.AddCoins(item.AsCoin());
 
-                    totalIn += item.Amount;
+                    totalIn += item.Money;
 
                     var fee = CalculateFee(builder);
                     var totalOut = subtractFees
@@ -107,21 +120,19 @@ namespace Lykke.Service.Zcash.Api.Services
             throw new InvalidOperationException("Insufficient funds");
         }
 
-        public async Task BroadcastTxAsync(IOperationalTransaction tx, Transaction transaction)
+        public async Task BroadcastTxAsync(IOperationalTransaction tx, string transaction)
         {
             try
             {
-                await _rpcClient.SendRawTransactionAsync(transaction);
+                var transactionHash = await SendRpcAsync<string>(RPCOperations.sendrawtransaction, transaction); 
 
-                await _operationRepository.UpdateAsync(tx.OperationId, signedTransaction: transaction.ToHex(),
-                    sentUtc: DateTime.Now.ToUniversalTime(), 
-                    hash: transaction.GetHash().ToString());
+                await _operationRepository.UpdateAsync(tx.OperationId, signedTransaction: transaction,
+                    sentUtc: DateTime.UtcNow, hash: transactionHash);
             }
-            catch (Exception ex)
+            catch (RPCException ex)
             {
-                await _operationRepository.UpdateAsync(tx.OperationId, signedTransaction: transaction.ToHex(),
-                    failedUtc: DateTime.Now.ToUniversalTime(), 
-                    error: ex.ToString());
+                await _operationRepository.UpdateAsync(tx.OperationId, signedTransaction: transaction,
+                    failedUtc: DateTime.UtcNow, error: ex.ToString());
             }
         }
 
@@ -137,27 +148,21 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task HandleHistoryAsync()
         {
-            var lastProcessedBlock = _blocksRepository.GetLastProcessedBlockHash();
+            await RefreshSettingsAsync();
 
-            var command = await _rpcClient.SendCommandAsync(RPCOperations.listsinceblock, 
-                lastProcessedBlock, _settings.ConfirmationLevel, true);
+            var summary = await SendRpcAsync<TransactionSummary>(RPCOperations.listsinceblock, 
+                _settings.LastBlockHash, _settings.ConfirmationLevel, true);
 
-            command.ThrowIfError();
-
-            var lastTxsResult = command.Result.ToObject<LastTransactionResult>();
-
-            var lastTxs = from t in lastTxsResult.Transactions
-                          where t.Confirmations >= _settings.ConfirmationLevel
-                          where t.Category == TX_CATEGORY_RECEIVE || t.Category == TX_CATEGORY_SEND
+            var lastTxs = from t in summary.Transactions
+                          where t.Confirmations >= _settings.ConfirmationLevel && _transactionCategories.ContainsKey(t.Category)
                           group t by new { t.Category, t.Address, t.TxId, t.BlockTime } into g
                           select new
                           {
-                              g.Key.Category,
                               ToAddress = g.Key.Address,
                               Hash = g.Key.TxId,
                               Amount = Math.Abs(g.Sum(t => t.Amount)),
-                              Fee = Math.Abs(g.Sum(t => t.Fee) ?? 0M),
-                              Timestamp = DateTimeOffset.FromUnixTimeSeconds(g.Key.BlockTime).UtcDateTime
+                              Timestamp = DateTimeOffset.FromUnixTimeSeconds(g.Key.BlockTime).UtcDateTime,
+                              MonitorType = _transactionCategories[g.Key.Category],
                           };
 
             var sentTxs = (await _operationRepository.GetByStateAsync(TransactionState.Sent))
@@ -167,72 +172,66 @@ namespace Lykke.Service.Zcash.Api.Services
             {
                 if (sentTxs.TryGetValue(t.Hash, out var sent))
                 {
-                    await _operationRepository.UpdateAsync(sent.OperationId, completedUtc: t.Timestamp);
+                    await _operationRepository.UpdateAsync(sent.OperationId, 
+                        completedUtc: t.Timestamp);
                 }
 
-                if (await IsObservableAsync(t.Category, t.ToAddress))
+                if (await IsObservableAsync(t.MonitorType, t.ToAddress))
                 {
-                    var fromAddresses = await GetFromAddresses(t.Hash, t.ToAddress);
-                    var from = fromAddresses.FirstOrDefault();
-                    var operationId = sent?.OperationId ?? Guid.Empty;
-                    var assetId = Asset.Zec.Id;
+                    var fromAddress = await GetFromAddressAsync(t.Hash);
+                    var operationId = await GetOperationIdAsync(t.Hash);
 
-                    await _historyRepository.CreateAsync(operationId,
-                        t.Hash, t.Timestamp, from, t.ToAddress, t.Amount, t.Fee, assetId);
+                    await _historyRepository.CreateAsync(operationId, t.Hash, t.Timestamp, 
+                        fromAddress, t.ToAddress, t.Amount, Asset.Zec.Id);
                 }
             }
 
-            _blocksRepository.SaveLastProcessedBlockHash(lastTxs.LastBlock);
+            await SaveLastBlockAsync(summary.LastBlock);
         }
 
-        public async Task<ITransaction[]> GetHistoryAsync(AddressMonitorType type, string address, string afterHash = null, int take = 100)
+        public async Task<IEnumerable<ITransaction>> GetHistoryAsync(AddressMonitorType monitorType, string address, string afterHash = null, int take = 100)
         {
-            return await _historyRepository.GetAsync(type, address, afterHash, take);
+            return await _historyRepository.GetByAddressAsync(monitorType, address, afterHash, take);
         }
 
-        public async Task<(string continuation, AddressBalance[] items)> GetBalancesAsync(string continuation = null, int take = 100)
+        public async Task<(string continuation, IEnumerable<AddressBalance> items)> GetBalancesAsync(string continuation = null, int take = 100)
         {
-            var result = await _addressRepository.GetAsync(AddressMonitorType.Balance, continuation, take);
+            var result = await _addressRepository.GetByTypeAsync(AddressMonitorType.Balance, continuation, take);
 
-            var addresses = result.items
-                .Select(a => BitcoinAddress.Create(a.Address))
-                .ToArray();
+            var utxoParams = new List<object>();
 
-            var utxo = await _rpcClient.ListUnspentAsync(_settings.ConfirmationLevel, int.MaxValue, addresses);
+            utxoParams.Add(_settings.ConfirmationLevel);
+            utxoParams.Add(int.MaxValue);
+            utxoParams.AddRange(result.items.Select(a => a.Address));
 
-            var balances = utxo.GroupBy(uc => uc.Address)
+            var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent, utxoParams.ToArray());
+
+            var balances = utxo.GroupBy(u => u.Address)
                 .Select(g => new AddressBalance
                 {
-                    Asset = Asset.Zec,
                     Address = g.Key,
-                    Balance = g.Aggregate(Money.Zero, (m, uc) => m + uc.Amount)
-                })
-                .ToArray();
+                    Balance = g.Sum(u => u.Amount),
+                    AssetId = Asset.Zec.Id
+                });
 
-            return(result.continuation, balances);
+            return (result.continuation, balances);
         }
 
         public async Task<bool> TryCreateObservableAddressAsync(AddressMonitorType monitorType, string address)
         {
-            await _rpcClient.ImportAddressAsync(BitcoinAddress.Create(address), null, false);
+            await SendRpcAsync(RPCOperations.importaddress, address, null, false);
 
             return await _addressRepository.CreateIfNotExistsAsync(monitorType, address);
         }
 
         public async Task<bool> TryDeleteObservableAddressAsync(AddressMonitorType monitorType, string address)
         {
-            return await _addressRepository.DeleteIfExistAsync(monitorType, address));
+            return await _addressRepository.DeleteIfExistAsync(monitorType, address);
         }
 
-        public async Task<bool> IsObservableAsync(string category, string address)
+        public async Task<bool> IsObservableAsync(AddressMonitorType monitorType, string address)
         {
-            var monitorType = category == TX_CATEGORY_RECEIVE 
-                ? AddressMonitorType.To 
-                : AddressMonitorType.From;
-
-            var entity = await _addressRepository.GetAsync(monitorType, address);
-
-            return entity != null;
+            return (await _addressRepository.GetAsync(monitorType, address)) != null;
         }
 
         public Money CalculateFee(TransactionBuilder transactionBuilder)
@@ -243,7 +242,7 @@ namespace Lykke.Service.Zcash.Api.Services
             }
             else
             {
-                var fee = transactionBuilder.EstimateFees(_feeRate);
+                var fee = transactionBuilder.EstimateFees(new FeeRate(Money.Coins(_settings.FeePerKb)));
                 var min = Money.Coins(_settings.MinFee);
                 var max = Money.Coins(_settings.MaxFee);
 
@@ -251,21 +250,92 @@ namespace Lykke.Service.Zcash.Api.Services
             }
         }
 
-        public async Task<string[]> GetFromAddresses(string txHash, string toAddress)
+        public async Task<string> GetFromAddressAsync(string transactionHash)
         {
-            var addresses = new List<string>();
-            var network = BitcoinAddress.Create(toAddress).Network;
-            var curr = await _rpcClient.GetRawTransactionAsync(uint256.Parse(txHash));
+            var result = new List<string>();
+            var curr = await GetTransaction(transactionHash);
 
-            foreach (var input in curr.Inputs)
+            foreach (var input in curr.Vin)
             {
-                var prev = await _rpcClient.GetRawTransactionAsync(input.PrevOut.Hash);
-                var addr = prev.Outputs[input.PrevOut.N].ScriptPubKey.GetDestinationAddress(network);
+                var prev = await GetTransaction(input.TxId);
+                var vout = prev.Vout.OrderBy(x => x.N).Skip((int)input.Vout).First();
 
-                addresses.Add(addr.ToString());
+                result.AddRange(vout.ScriptPubKey.Addresses);
             }
 
-            return addresses.ToArray();
+            return result.FirstOrDefault();
+        }
+
+        public async Task<Guid> GetOperationIdAsync(string transactionHash)
+        {
+            var operationIndex = await _operationRepository.GetOperationIndexAsync(transactionHash);
+
+            if (operationIndex != null)
+                return operationIndex.OperationId;
+            else
+                return Guid.Empty;
+        }
+
+        public async Task RefreshSettingsAsync()
+        {
+            var settings = await _settingsRepository.GetAsync();
+
+            if (settings != null)
+            {
+                _settings.ConfirmationLevel = settings.ConfirmationLevel ?? _settings.ConfirmationLevel;
+                _settings.LastBlockHash = settings.LastBlockHash ?? _settings.LastBlockHash; 
+                _settings.FeePerKb = settings.FeePerKb ?? _settings.FeePerKb;
+                _settings.MaxFee = settings.MaxFee ?? _settings.MaxFee;
+                _settings.MinFee = settings.MinFee ?? _settings.MinFee;
+            }
+        }
+
+        public async Task SaveLastBlockAsync(string blockHash)
+        {
+            await _settingsRepository.UpsertAsync(lastBlockHash: blockHash);
+        }
+
+        public async Task<RawTransaction> GetTransaction(string transactionHash)
+        {
+            var tx = await SendRpcAsync<RawTransaction>(RPCOperations.getrawtransaction, transactionHash, 1);
+
+            if (tx == null)
+            {
+                throw new InvalidOperationException(
+                    $"Transaction {transactionHash} not found. Consider restarting zcashd daemon with txindex=1 option.");
+            }
+
+            return tx;
+        }
+
+        public async Task<T> SendRpcAsync<T>(RPCOperations command, params object[] parameters)
+        {
+            var result = await _rpcClient.SendCommandAsync(command, parameters);
+
+            result.ThrowIfError();
+
+            // NBitcoin can not deserialize shielded tx data,
+            // that's why custom models are used widely instead of built-in NBitcoin commands;
+            // additionaly in case of exception we save context to investigate later:
+
+            try
+            {
+                return result.Result.ToObject<T>();
+            }
+            catch (JsonSerializationException jex)
+            {
+                await _log.WriteErrorAsync(nameof(SendRpcAsync), $"Command: {command}, Response: {result.ResultString}", jex);
+                throw;
+            }
+        }
+
+        public async Task<RPCResponse> SendRpcAsync(RPCOperations command, params object[] parameters)
+        {
+            var result = await _rpcClient.SendCommandAsync(command, parameters);
+
+            result.ThrowIfError();
+
+            return result;
         }
     }
 }

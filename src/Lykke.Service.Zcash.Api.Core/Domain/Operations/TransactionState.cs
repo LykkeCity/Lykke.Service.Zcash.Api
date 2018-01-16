@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Lykke.Service.Zcash.Api.Core.Domain.Transactions
+namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 {
     public enum TransactionState
     {

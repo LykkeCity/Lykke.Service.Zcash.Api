@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Lykke.Service.Zcash.Api.Core.Domain;
 using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
-using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
+using Lykke.Service.Zcash.Api.Core.Domain.Operations;
 using NBitcoin;
 
 namespace Lykke.Service.Zcash.Api.Core.Services
@@ -29,7 +29,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// <param name="tx">Observable transaction</param>
         /// <param name="transaction">Signed transaction in HEX format</param>
         /// <returns></returns>
-        Task BroadcastTxAsync(IOperationalTransaction tx, Transaction transaction);
+        Task BroadcastTxAsync(IOperationalTransaction tx, string transaction);
 
         /// <summary>
         /// Returns observable transaction by operation ID, or null if transaction not found.
@@ -60,7 +60,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// <param name="afterHash">Method returns transactions after transaction with specified hash</param>
         /// <param name="take">Count of transactions to return</param>
         /// <returns></returns>
-        Task<ITransaction[]> GetHistoryAsync(AddressMonitorType type, string address, string afterHash = null, int take = 100);
+        Task<IEnumerable<ITransaction>> GetHistoryAsync(AddressMonitorType type, string address, string afterHash = null, int take = 100);
 
         /// <summary>
         /// Returns balances of observable addresses.
@@ -68,7 +68,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// <param name="skip">Count to skip</param>
         /// <param name="take">Count to take</param>
         /// <returns></returns>
-        Task<(string continuation, AddressBalance[] items)> GetBalancesAsync(string continuation = null, int take = 100);
+        Task<(string continuation, IEnumerable<AddressBalance> items)> GetBalancesAsync(string continuation = null, int take = 100);
 
         /// <summary>
         /// Adds address to observation list.

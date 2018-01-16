@@ -2,7 +2,7 @@
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
 
-namespace Lykke.Service.Zcash.Api.Core.Domain.Transactions
+namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 {
     public static class TransactionExtensions
     {
@@ -36,7 +36,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Transactions
                 FromAddress = self.FromAddress,
                 Hash = self.Hash,
                 OperationId = self.OperationId,
-                Timestamp = self.Timestamp,
+                Timestamp = self.TimestampUtc,
                 ToAddress = self.ToAddress
             };
         }

@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using Lykke.AzureStorage.Tables;
 using Lykke.AzureStorage.Tables.Entity.Annotation;
 using Lykke.AzureStorage.Tables.Entity.ValueTypesMerging;
-using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
+using Lykke.Service.Zcash.Api.Core.Domain.Operations;
 
-namespace Lykke.Service.Zcash.Api.AzureRepositories.Transactions
+namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
 {
     [ValueTypeMergingStrategy(ValueTypeMergingStrategy.UpdateAlways)]
     public class TransactionEntity : AzureTableEntity, ITransaction
@@ -21,7 +19,8 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Transactions
             RowKey = rowKey;
         }
 
-        public Guid? OperationId { get; set; }
+        public Guid OperationId { get; set; }
+        public DateTime TimestampUtc { get; set; }
         public string FromAddress { get; set; }
         public string ToAddress { get; set; }
         public string AssetId { get; set; }

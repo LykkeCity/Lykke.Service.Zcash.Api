@@ -29,29 +29,19 @@ namespace Lykke.AzureStorage.Tables.Paging
                     self.NextPage = parts[2];
                 }
             }
-
-            return self;
         }
 
         public static string Encode(this PagingInfo self)
         {
-            if (self == null)
+            if (self == null || string.IsNullOrWhiteSpace(self.NextPage))
             {
                 return null;
             }
 
-            var parts = new List<string>
-            {
+            var value = string.Join(SEPARATOR,
                 self.CurrentPage.ToString(),
-                self.NavigateToPageIndex.ToString()
-            };
-
-            if (!string.IsNullOrWhiteSpace(self.NextPage))
-            {
-                parts.Add(self.NextPage);
-            }
-
-            var value = string.Join(SEPARATOR, parts);
+                self.NavigateToPageIndex.ToString(),
+                self.NextPage);
 
             return WebUtility.UrlEncode(value);
         }

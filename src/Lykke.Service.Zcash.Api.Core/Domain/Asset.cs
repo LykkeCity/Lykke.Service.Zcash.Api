@@ -11,11 +11,6 @@ namespace Lykke.Service.Zcash.Api.Core.Domain
         public int DecimalPlaces { get; }
         public MoneyUnit Unit { get; }
 
-        public string GetRoundTrip(Money amount)
-        {
-            
-        }
-
         // static instances (constants)
 
         public static Asset Zec { get; } = new Asset("ZEC", 8, MoneyUnit.BTC);

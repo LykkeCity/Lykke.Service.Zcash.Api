@@ -10,9 +10,9 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Addresses
         {
             return new WalletBalanceContract()
             {
-                Address = self.Address.ToString(),
-                AssetId = self.Asset.Id,
-                Balance = Conversions.CoinsToContract(self.Balance.ToUnit(self.Asset.Unit), self.Asset.DecimalPlaces)
+                Address = self.Address,
+                AssetId = self.AssetId,
+                Balance = Conversions.CoinsToContract(self.Balance, Constants.Assets[self.AssetId].DecimalPlaces)
             };
         }
     }

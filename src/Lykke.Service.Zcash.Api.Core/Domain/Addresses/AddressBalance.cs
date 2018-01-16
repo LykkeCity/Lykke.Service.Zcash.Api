@@ -7,8 +7,8 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Addresses
 {
     public class AddressBalance
     {
-        public BitcoinAddress Address { get; set; }
-        public Asset Asset { get; set; }
-        public Money Balance { get; set; }
+        public string Address { get; set; }
+        public string AssetId { get; set; }
+        public decimal Balance { get; set; }
     }
 }

@@ -12,5 +12,6 @@
         public bool UseDefaultFee { get; set; }
         public int ConfirmationLevel { get; set; }
         public int IndexInterval { get; set; }
+        public string LastBlockHash { get; set; }
     }
 }

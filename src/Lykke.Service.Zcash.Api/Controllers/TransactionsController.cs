@@ -9,7 +9,7 @@ using Lykke.Common.ApiLibrary.Contract;
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
 using Lykke.Service.Zcash.Api.Core;
-using Lykke.Service.Zcash.Api.Core.Domain.Transactions;
+using Lykke.Service.Zcash.Api.Core.Domain.Operations;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
 using Microsoft.AspNetCore.Http;
@@ -22,17 +22,13 @@ namespace Lykke.Service.Zcash.Api.Controllers
     public class TransactionsController : Controller
     {
         private readonly IBlockchainService _blockchainService;
-        private readonly ILog _log;
         private readonly ZcashApiSettings _settings;
 
         public TransactionsController(
             IBlockchainService blockchainService,
-            ILog log,
             ZcashApiSettings settings)
         {
             _blockchainService = blockchainService;
-            _transactionRepository = transactionRepository;
-            _log = log;
             _settings = settings;
         }
 
@@ -69,7 +65,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Broadcast([FromBody]BroadcastTransactionRequest request)
         {
-            if (!ModelState.IsValid || !_blockchainService.IsValidRequest(ModelState, request, out var transaction))
+            if (!ModelState.IsValid || !_blockchainService.IsValidRequest(ModelState, request, out var _))
             {
                 return BadRequest(ErrorResponseFactory.Create(ModelState));
             }
@@ -81,13 +77,13 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return StatusCode(StatusCodes.Status404NotFound,
                     ErrorResponse.Create("Transaction must be built beforehand by Zcash API to be successfully broadcasted then"));
             }
-            else if (tx.State == TransactionState.Sent && tx.SignedTransaction == request.SignedTransaction)
+            else if (tx.State == TransactionState.Sent && request.SignedTransaction == tx.SignedTransaction)
             {
                 return StatusCode(StatusCodes.Status409Conflict,
                     ErrorResponse.Create("Transaction already sent earlier"));
             }
 
-            await _blockchainService.BroadcastTxAsync(tx, transaction);
+            await _blockchainService.BroadcastTxAsync(tx, request.SignedTransaction);
             
             return Ok();
         }
