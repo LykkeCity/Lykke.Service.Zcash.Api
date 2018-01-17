@@ -1,6 +1,8 @@
-﻿namespace Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings
+﻿using Lykke.Service.Zcash.Api.Core.Domain.Settings;
+
+namespace Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings
 {
-    public class ZcashApiSettings
+    public class ZcashApiSettings : ISettings
     {
         public DbSettings Db { get; set; }
         public string SignApiUrl { get; set; }

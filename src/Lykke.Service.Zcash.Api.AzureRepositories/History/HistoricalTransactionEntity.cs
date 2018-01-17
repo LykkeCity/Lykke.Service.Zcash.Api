@@ -2,18 +2,18 @@
 using Lykke.AzureStorage.Tables;
 using Lykke.AzureStorage.Tables.Entity.Annotation;
 using Lykke.AzureStorage.Tables.Entity.ValueTypesMerging;
-using Lykke.Service.Zcash.Api.Core.Domain.Operations;
+using Lykke.Service.Zcash.Api.Core.Domain;
 
-namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
+namespace Lykke.Service.Zcash.Api.AzureRepositories.History
 {
     [ValueTypeMergingStrategy(ValueTypeMergingStrategy.UpdateAlways)]
-    public class TransactionEntity : AzureTableEntity, ITransaction
+    public class HistoricalTransactionEntity : AzureTableEntity, ITransaction
     {
-        public TransactionEntity()
+        public HistoricalTransactionEntity()
         {
         }
 
-        public TransactionEntity(string partitionKey, string rowKey)
+        public HistoricalTransactionEntity(string partitionKey, string rowKey)
         {
             PartitionKey = partitionKey;
             RowKey = rowKey;

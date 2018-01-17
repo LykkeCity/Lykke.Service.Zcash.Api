@@ -77,7 +77,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return StatusCode(StatusCodes.Status404NotFound,
                     ErrorResponse.Create("Transaction must be built beforehand by Zcash API to be successfully broadcasted then"));
             }
-            else if (tx.State == TransactionState.Sent && request.SignedTransaction == tx.SignedTransaction)
+            else if (tx.State == OperationState.Sent && request.SignedTransaction == tx.SignedTransaction)
             {
                 return StatusCode(StatusCodes.Status409Conflict,
                     ErrorResponse.Create("Transaction already sent earlier"));

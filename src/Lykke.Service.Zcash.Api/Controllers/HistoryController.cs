@@ -21,7 +21,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> ObserveFrom(
-            [FromRoute]AddressMonitorType type,
+            [FromRoute]ObservationSubject type,
             [FromRoute]string address)
         {
             if (await _blockchainService.TryCreateObservableAddressAsync(type, address))
@@ -32,7 +32,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
 
         [HttpGet("{type}/{address}")]
         public async Task<HistoricalTransactionContract[]> Get(
-            [FromRoute]AddressMonitorType type,
+            [FromRoute]ObservationSubject type,
             [FromRoute]string address, 
             [FromQuery]string afterHash = null,
             [FromQuery]int take = 100)

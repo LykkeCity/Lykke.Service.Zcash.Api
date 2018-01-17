@@ -32,7 +32,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Create([FromRoute]string address)
         {
-            if (await _blockchainService.TryCreateObservableAddressAsync(AddressMonitorType.Balance, address))
+            if (await _blockchainService.TryCreateObservableAddressAsync(ObservationSubject.Balance, address))
                 return Ok();
             else
                 return StatusCode(StatusCodes.Status409Conflict);
@@ -43,7 +43,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> Delete([FromRoute]string address)
         {
-            if (await _blockchainService.TryDeleteObservableAddressAsync(AddressMonitorType.Balance, address))
+            if (await _blockchainService.TryDeleteObservableAddressAsync(ObservationSubject.Balance, address))
                 return Ok();
             else
                 return NoContent();

@@ -22,7 +22,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
             };
         }
 
-        public static BroadcastedTransactionState ToBroadcastedState(this TransactionState self)
+        public static BroadcastedTransactionState ToBroadcastedState(this OperationState self)
         {
             return (BroadcastedTransactionState)((int)self + 1);
         }

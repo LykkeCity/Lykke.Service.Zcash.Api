@@ -40,7 +40,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
         public string AssetId { get; set; }
         public decimal Amount { get; set; }
         public string Hash { get; set; }
-        public TransactionState State { get; set; }
+        public OperationState State { get; set; }
         public DateTime BuiltUtc { get; set; }
         public DateTime? SentUtc { get; set; }
         public DateTime? CompletedUtc { get; set; }

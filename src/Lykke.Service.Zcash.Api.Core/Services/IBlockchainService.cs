@@ -60,7 +60,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// <param name="afterHash">Method returns transactions after transaction with specified hash</param>
         /// <param name="take">Count of transactions to return</param>
         /// <returns></returns>
-        Task<IEnumerable<ITransaction>> GetHistoryAsync(AddressMonitorType type, string address, string afterHash = null, int take = 100);
+        Task<IEnumerable<ITransaction>> GetHistoryAsync(ObservationSubject type, string address, string afterHash = null, int take = 100);
 
         /// <summary>
         /// Returns balances of observable addresses.
@@ -75,14 +75,14 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// </summary>
         /// <param name="address">Zcash t-address</param>
         /// <returns>True, if address successfully created, false if address is already observed</returns>
-        Task<bool> TryCreateObservableAddressAsync(AddressMonitorType monitorType, string address);
+        Task<bool> TryCreateObservableAddressAsync(ObservationSubject subject, string address);
 
         /// <summary>
         /// Removes  address from observation list.
         /// </summary>
         /// <param name="address">Zcash t-address</param>
         /// <returns>True, if address successfully deleted, false if address is not observed</returns>
-        Task<bool> TryDeleteObservableAddressAsync(AddressMonitorType monitorType, string address);
+        Task<bool> TryDeleteObservableAddressAsync(ObservationSubject subject, string address);
 
         /// <summary>
         /// Checks if specified address is valid Zcash address

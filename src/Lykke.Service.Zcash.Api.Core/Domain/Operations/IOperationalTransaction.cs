@@ -6,7 +6,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 {
     public interface IOperationalTransaction : ITransaction
     {
-        TransactionState State { get; }
+        OperationState State { get; }
         DateTime BuiltUtc { get; }
         DateTime? SentUtc { get; }
         DateTime? CompletedUtc { get; }

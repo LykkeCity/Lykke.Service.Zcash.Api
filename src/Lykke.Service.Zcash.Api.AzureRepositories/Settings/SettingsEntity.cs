@@ -21,10 +21,11 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Settings
             RowKey = rowKey;
         }
 
-        public int? ConfirmationLevel { get; set; }
+        public int ConfirmationLevel { get; set; }
         public string LastBlockHash { get; set; }
-        public decimal? FeePerKb { get; set; }
-        public decimal? MaxFee { get; set; }
-        public decimal? MinFee { get; set; }
+        public decimal FeePerKb { get; set; }
+        public decimal MaxFee { get; set; }
+        public decimal MinFee { get; set; }
+        public bool UseDefaultFee { get; set; }
     }
 }

@@ -16,8 +16,8 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 
         Task<IOperationalTransaction> GetAsync(Guid operationId);
 
-        Task<IEnumerable<IOperationalTransaction>> GetByStateAsync(TransactionState state);
+        Task<IEnumerable<IOperationalTransaction>> GetByStateAsync(OperationState state);
 
-        Task<IOperationIndex> GetOperationIndexAsync(string transactionHash);
+        Task<Guid?> GetOperationIdAsync(string hash);
     }
 }

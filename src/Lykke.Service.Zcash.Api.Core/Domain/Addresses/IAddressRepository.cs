@@ -5,12 +5,12 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Addresses
 {
     public interface IAddressRepository
     {
-        Task<bool> CreateIfNotExistsAsync(AddressMonitorType monitorType, string address);
+        Task<bool> CreateIfNotExistsAsync(ObservationSubject subject, string address);
 
-        Task<bool> DeleteIfExistAsync(AddressMonitorType monitorType, string address);
+        Task<bool> DeleteIfExistAsync(ObservationSubject subject, string address);
 
-        Task<IAddress> GetAsync(AddressMonitorType monitorType, string address);
+        Task<IAddress> GetAsync(ObservationSubject subject, string address);
 
-        Task<(string continuation, IEnumerable<IAddress> items)> GetByTypeAsync(AddressMonitorType monitorType, string continuation = null, int take = 100);
+        Task<(string continuation, IEnumerable<IAddress> items)> GetBySubjectAsync(ObservationSubject subject, string continuation = null, int take = 100);
     }
 }

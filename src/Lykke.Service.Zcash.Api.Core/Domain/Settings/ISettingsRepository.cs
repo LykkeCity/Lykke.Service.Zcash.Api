@@ -9,6 +9,6 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Settings
     {
         Task<ISettings> GetAsync();
 
-        Task UpsertAsync(string lastBlockHash = null);
+        Task UpsertAsync(ISettings settings);
     }
 }

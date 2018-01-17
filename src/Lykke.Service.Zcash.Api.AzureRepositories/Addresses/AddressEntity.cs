@@ -20,9 +20,9 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
         }
 
         [IgnoreProperty]
-        public AddressMonitorType MonitorType
+        public ObservationSubject ObservationSubject
         {
-            get => (AddressMonitorType)Enum.Parse(typeof(AddressMonitorType), PartitionKey);
+            get => (ObservationSubject)Enum.Parse(typeof(ObservationSubject), PartitionKey);
         }
 
         [IgnoreProperty]

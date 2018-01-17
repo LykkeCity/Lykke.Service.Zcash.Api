@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 {
-    public enum TransactionState
+    public enum OperationState
     {
         Built = 0,
         Sent = 1,
