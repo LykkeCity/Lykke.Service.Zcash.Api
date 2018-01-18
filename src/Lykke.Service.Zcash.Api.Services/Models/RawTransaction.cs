@@ -14,10 +14,13 @@ namespace Lykke.Service.Zcash.Api.Services.Models
         {
             public string TxId { get; set; }
             public uint Vout { get; set; }
+            public decimal? Value { get; set; }
+            public string[] Addresses { get; set; }
         }
 
         public class Output
         {
+            public decimal Value { get; set; }
             public uint N { get; set; }
             public ScriptPubKey ScriptPubKey { get; set; }
         }

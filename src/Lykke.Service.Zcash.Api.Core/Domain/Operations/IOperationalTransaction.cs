@@ -11,6 +11,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
         DateTime? SentUtc { get; }
         DateTime? CompletedUtc { get; }
         DateTime? FailedUtc { get; }
+        DateTime? DeletedUtc { get; }
         string SignContext { get; }
         string SignedTransaction { get; }
         string Error { get; }

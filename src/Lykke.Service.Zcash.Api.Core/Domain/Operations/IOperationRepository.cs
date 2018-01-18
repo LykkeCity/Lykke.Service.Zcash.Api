@@ -9,15 +9,12 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
     {
         Task<IOperationalTransaction> CreateAsync(Guid operationId, string fromAddress, string toAddress, string assetId, decimal amount, decimal? fee, string signContext);
 
-        Task<IOperationalTransaction> UpdateAsync(Guid operationId, DateTime? sentUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null,
+        Task<IOperationalTransaction> UpdateAsync(Guid operationId,
+            DateTime? sentUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, DateTime? deletedUtc = null,
             string signedTransaction = null, string hash = null, string error = null);
-
-        Task<bool> DeleteIfExistAsync(Guid operationId);
 
         Task<IOperationalTransaction> GetAsync(Guid operationId);
 
-        Task<IEnumerable<IOperationalTransaction>> GetByStateAsync(OperationState state);
-
-        Task<Guid?> GetOperationIdAsync(string hash);
+        Task<Guid?> GetOperationIdAsync(string hash, string toAddress);
     }
 }

@@ -17,21 +17,27 @@ namespace Lykke.Service.Zcash.Api.Services.Models
             const string receive = "receive";
             const string send = "send";
 
-            return Transactions
-                .Where(t => t.Category == send || t.Category == receive)
-                .Where(t => t.Confirmations >= requiredConfirmations)
-                .GroupBy(t => new { t.Category, t.Address, t.TxId, t.BlockTime })
-                .Select(g => new RecentTransaction
-                {
-                    Amount = Math.Abs(g.Sum(e => e.Amount)),
-                    AssetId = Asset.Zec.Id,
-                    Hash = g.Key.TxId,
-                    ObservationSubject = g.Key.Category == send 
-                        ? ObservationSubject.From 
-                        : ObservationSubject.To,
-                    TimestampUtc = DateTimeOffset.FromUnixTimeSeconds(g.Key.BlockTime).UtcDateTime,
-                    ToAddress = g.Key.Address
-                });
+            // due to absence of "from" address(es) we can receive multiple descriptors differing by amounts only,
+            // i.e. for transfers from different addresses to a single deposit wallet within a single transaction;
+            // so to be able to store and distinguish operations in history we group
+            // descriptors by category (wallet relatively), "to" address and tx hash:
+
+            return from t in Transactions
+                   where t.Confirmations >= requiredConfirmations && (t.Category == send || t.Category == receive)
+                   group t by new { t.Address, t.Category, t.TxId } into g
+                   let time = g.First().BlockTime
+                   select new RecentTransaction
+                   {
+                       Amount = Math.Abs(g.Sum(e => e.Amount)),
+                       AssetId = Asset.Zec.Id,
+                       BlockTime = time,
+                       Hash = g.Key.TxId,
+                       ObservationSubject = g.Key.Category == send ?
+                           ObservationSubject.From :
+                           ObservationSubject.To,
+                       TimestampUtc = DateTimeOffset.FromUnixTimeSeconds(time).UtcDateTime,
+                       ToAddress = g.Key.Address
+                   };
         }
 
         public class Transaction

@@ -9,6 +9,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
         Built = 0,
         Sent = 1,
         Completed = 2,
-        Failed = 3
+        Failed = 3,
+        Deleted = 4
     }
 }

@@ -16,10 +16,10 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
     {
         private INoSQLTableStorage<OperationalTransactionEntity> _operationStorage;
         private INoSQLTableStorage<IndexEntity> _indexStorage;
-        private static string GetTxPartitionKey() => "Operation";
-        private static string GetTxRowKey(Guid operationId) => operationId.ToString();
-        private static string GetIxPartitionKey() => "OperationIndex";
-        private static string GetIxRowKey(string hash) => hash;
+        private static string GetOperationPartitionKey(Guid operationId) => operationId.ToString();
+        private static string GetOperationRowKey() => string.Empty;
+        private static string GetIndexPartitionKey(string hash) => hash;
+        private static string GetIndexRowKey(string addr) => addr;
 
         public OperationRepository(IReloadingManager<string> connectionStringManager, ILog log)
         {
@@ -27,9 +27,12 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
             _indexStorage = AzureTableStorage<IndexEntity>.Create(connectionStringManager, "ZcashOperationIndex", log);
         }
 
-        public async Task<IOperationalTransaction> CreateAsync(Guid operationId, string fromAddress, string toAddress, string assetId, decimal amount, decimal? fee, string signContext)
+        public async Task<IOperationalTransaction> CreateAsync(Guid operationId, 
+            string fromAddress, string toAddress, string assetId, decimal amount, decimal? fee, string signContext)
         {
-            var entity = new OperationalTransactionEntity(GetTxPartitionKey(), GetTxRowKey(operationId))
+            var partitionKey = GetOperationPartitionKey(operationId);
+            var rowKey = GetOperationRowKey();
+            var entity = new OperationalTransactionEntity(partitionKey, rowKey)
             {
                 FromAddress = fromAddress,
                 ToAddress = toAddress,
@@ -46,52 +49,57 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
             return entity;
         }
 
-        public async Task<IOperationalTransaction> UpdateAsync(Guid operationId, DateTime? sentUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null,
+        public async Task<IOperationalTransaction> UpdateAsync(Guid operationId,
+            DateTime? sentUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, DateTime? deletedUtc = null,
             string signedTransaction = null, string hash = null, string error = null)
         {
-            if (!string.IsNullOrWhiteSpace(hash))
-            {
-                await _indexStorage.InsertOrReplaceAsync(new IndexEntity
-                {
-                    PartitionKey = GetIxPartitionKey(),
-                    RowKey = GetIxRowKey(hash),
-                    OperationId = operationId
-                });
-            }
-
-            return await _operationStorage.MergeAsync(GetTxPartitionKey(), GetTxRowKey(operationId), e =>
+            var partitionKey = GetOperationPartitionKey(operationId);
+            var rowKey = GetOperationRowKey();
+            var entity = await _operationStorage.MergeAsync(partitionKey, rowKey, e =>
             {
                 e.SentUtc = sentUtc ?? e.SentUtc;
                 e.CompletedUtc = completedUtc ?? e.CompletedUtc;
                 e.FailedUtc = failedUtc ?? e.FailedUtc;
+                e.DeletedUtc = deletedUtc ?? e.DeletedUtc;
                 e.SignedTransaction = signedTransaction ?? e.SignedTransaction;
                 e.Hash = hash ?? e.Hash;
                 e.Error = error ?? e.Error;
                 return e;
             });
-        }
 
-        public async Task<bool> DeleteIfExistAsync(Guid operationId)
-        {
-            return await _operationStorage.DeleteIfExistAsync(GetTxPartitionKey(), GetTxRowKey(operationId));
+            await UpsertIndexAsync(hash, entity.ToAddress, operationId);
+
+            return entity;
         }
 
         public async Task<IOperationalTransaction> GetAsync(Guid operationId)
         {
-            return await _operationStorage.GetDataAsync(GetTxPartitionKey(), GetTxRowKey(operationId));
+            var partitionKey = GetOperationPartitionKey(operationId);
+            var rowKey = GetOperationRowKey();
+
+            return await _operationStorage.GetDataAsync(partitionKey, rowKey);
         }
 
-        public async Task<IEnumerable<IOperationalTransaction>> GetByStateAsync(OperationState state)
+        public async Task<Guid?> GetOperationIdAsync(string hash, string toAddress)
         {
-            return await _operationStorage.GetDataAsync(GetTxPartitionKey(), tx => tx.State == state);
-        }
-
-        public async Task<Guid?> GetOperationIdAsync(string hash)
-        {
-            var partitionKey = GetIxPartitionKey();
-            var rowKey = GetIxRowKey(hash);
+            var partitionKey = GetIndexPartitionKey(hash);
+            var rowKey = GetIndexRowKey(toAddress);
 
             return (await _indexStorage.GetDataAsync(partitionKey, rowKey))?.OperationId;
+        }
+
+        public async Task UpsertIndexAsync(string hash, string toAddress, Guid operationId)
+        {
+            if (!string.IsNullOrWhiteSpace(hash))
+            {
+                await _indexStorage.InsertOrReplaceAsync(
+                    new IndexEntity
+                    {
+                        PartitionKey = GetIndexPartitionKey(hash),
+                        RowKey = GetIndexRowKey(toAddress),
+                        OperationId = operationId
+                    });
+            }   
         }
 
         public class IndexEntity : TableEntity

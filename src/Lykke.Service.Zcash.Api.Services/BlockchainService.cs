@@ -138,7 +138,16 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<bool> TryDeleteOperationalTxAsync(Guid operationId)
         {
-            return await _operationRepository.DeleteIfExistAsync(operationId);
+            var tx = await _operationRepository.GetAsync(operationId);
+            if (tx.State != OperationState.Deleted)
+            {
+                await _operationRepository.UpdateAsync(operationId, deletedUtc: DateTime.UtcNow);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
 
         public async Task HandleHistoryAsync()
@@ -148,46 +157,56 @@ namespace Lykke.Service.Zcash.Api.Services
             var recent = await SendRpcAsync<RecentTransactionSummary>(RPCOperations.listsinceblock,
                 settings.LastBlockHash, settings.ConfirmationLevel, 1);
 
-            var sent = (await _operationRepository.GetByStateAsync(OperationState.Sent))
-                .ToDictionary(tx => tx.Hash, tx => tx);
-
-            foreach (var transaction in recent.GetConfirmed(settings.ConfirmationLevel))
+            foreach (var transaction in recent.GetConfirmed(settings.ConfirmationLevel)) 
             {
-                // update operation state
+                var operationId = await _operationRepository.GetOperationIdAsync(transaction.Hash, transaction.ToAddress);
 
-                if (sent.TryGetValue(transaction.Hash, out var tx))
+                var from = new string[0];
+
+                if (operationId.HasValue)
                 {
-                    await _operationRepository.UpdateAsync(tx.OperationId, completedUtc: transaction.TimestampUtc);
+                    var tx = await _operationRepository.UpdateAsync(operationId.Value,
+                        completedUtc: transaction.TimestampUtc);
+
+                    // for operation we exactly know "from" address 
+                    from = new string[1]
+                    {
+                        tx.FromAddress
+                    };
+                }
+                else
+                {
+                    // for external transaction we get all original "from" addresses out of the blockchain
+                    from = await GetSendersAsync(transaction.Hash);
                 }
 
-                // save history for observable address
+                // for transaction with multiple inputs it is 
+                // hardly possible to determine "from" address exactly,
+                // so we use concatenated list of all "from" addresses
+                var fromAddress = string.Join(",", from);
 
-                var operationId = tx?.OperationId 
-                    ?? await _operationRepository.GetOperationIdAsync(transaction.Hash) 
-                    ?? Guid.Empty;
-
-                var from = await GetSendersAsync(transaction.Hash);
-
-                // default values for "to" history
-                var fromAddress = from.FirstOrDefault();
-                var observables = new[] 
+                // for "to" history we must check only if "to" address is observable
+                var observables = new string[]
                 {
                     transaction.ToAddress
                 };
 
-                // override defaults for "from" history
+                // for "from" history we must check every "from" address if it is observable,
+                // if several of them are, then we store similar historical entries
+                // for all of them, i.e. that might mean: 
+                // - address A was affected by transfer from "A,B,C,.." to "T"
+                // - address C was affected by transfer from "A,B,C,.." to "T"
                 if (transaction.ObservationSubject == ObservationSubject.From)
                 {
-                    fromAddress = null; // will use observable address instead
-                    observables = from;
+                    observables = from; 
                 }
 
-                foreach (var addr in observables)
+                foreach (var address in observables)
                 {
-                    if (await IsObservableAsync(transaction.ObservationSubject, addr))
+                    if (await IsObservableAsync(transaction.ObservationSubject, address))
                     {
-                        await _historyRepository.UpsertAsync(transaction.ObservationSubject, operationId,
-                            transaction.Hash, transaction.TimestampUtc, fromAddress ?? addr, transaction.ToAddress, transaction.Amount, transaction.AssetId);
+                        await _historyRepository.UpsertAsync(transaction.ObservationSubject, operationId ?? Guid.Empty,
+                            transaction.Hash, transaction.TimestampUtc, fromAddress, transaction.ToAddress, transaction.Amount, transaction.AssetId);
                     }
                 }
             }
@@ -204,26 +223,26 @@ namespace Lykke.Service.Zcash.Api.Services
         {
             var settings = await LoadStoredSettingsAsync();
 
-            var result = await _addressRepository.GetBySubjectAsync(ObservationSubject.Balance, continuation, take);
+            var addressQuery = await _addressRepository.GetBySubjectAsync(ObservationSubject.Balance, continuation, take);
 
             var utxoParams = new List<object>();
 
             utxoParams.Add(settings.ConfirmationLevel);
             utxoParams.Add(int.MaxValue);
-            utxoParams.AddRange(result.items.Select(a => a.Address));
+            utxoParams.AddRange(addressQuery.items.Select(x => x.Address));
 
             var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent, utxoParams.ToArray());
 
-            var balances = utxo.GroupBy(u => u.Address)
+            var balances = utxo.GroupBy(x => x.Address)
                 .Select(g => new AddressBalance
                 {
                     Address = g.Key,
-                    Balance = g.Sum(u => u.Amount),
+                    Balance = g.Sum(x => x.Amount),
                     AssetId = Asset.Zec.Id
                 })
                 .ToList();
 
-            return (result.continuation, balances);
+            return (addressQuery.continuation, balances);
         }
 
         public async Task<bool> TryCreateObservableAddressAsync(ObservationSubject subject, string address)

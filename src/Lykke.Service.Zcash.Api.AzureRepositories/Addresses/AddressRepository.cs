@@ -47,18 +47,9 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
             return await _tableStorage.GetDataAsync(partitionKKey, rowKey);
         }
 
-        public async Task<(string continuation, IEnumerable<IAddress> items)> GetBySubjectAsync(ObservationSubject subject, string continuation = null, int take = 100)
+        public async Task<(IEnumerable<IAddress> items, string continuation)> GetBySubjectAsync(ObservationSubject subject, string continuation = null, int take = 100)
         {
-            var pagingInfo = new PagingInfo { ElementCount = take };
-            
-            pagingInfo.Decode(continuation);
-
-            var query = new TableQuery<AddressEntity>()
-                .Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, GetPartitionKey(subject)));
-
-            var items = await _tableStorage.ExecuteQueryWithPaginationAsync(query, pagingInfo);
-
-            return (pagingInfo.Encode(), items);
+            return await _tableStorage.GetDataWithContinuationTokenAsync(GetPartitionKey(subject), take, continuation);
         }
     }
 }

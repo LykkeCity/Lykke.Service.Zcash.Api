@@ -11,6 +11,7 @@ namespace Lykke.Service.Zcash.Api.Services.Models
         public ObservationSubject ObservationSubject { get; set; }
         public Guid OperationId { get; set; }
         public DateTime TimestampUtc { get; set; }
+        public long BlockTime { get; set; }
         public string FromAddress { get; set; }
         public string ToAddress { get; set; }
         public string AssetId { get; set; }

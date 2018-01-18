@@ -45,6 +45,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
         public DateTime? SentUtc { get; set; }
         public DateTime? CompletedUtc { get; set; }
         public DateTime? FailedUtc { get; set; }
+        public DateTime? DeletedUtc { get; set; }
         public string SignContext { get; set; }
         public string SignedTransaction { get; set; }
         public string Error { get; set; }
