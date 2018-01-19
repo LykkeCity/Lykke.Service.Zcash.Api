@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Common;
 using Common.Log;
 using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain;
@@ -68,7 +69,7 @@ namespace Lykke.Service.Zcash.Api.Services
             }
         }
 
-        public async Task<IOperationalTransaction> BuildNotSignedTxAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees)
+        public async Task<IOperation> BuildAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees)
         {
             var settings = await LoadStoredSettingsAsync();
 
@@ -115,31 +116,31 @@ namespace Lykke.Service.Zcash.Api.Services
             throw new InvalidOperationException("Insufficient funds");
         }
 
-        public async Task BroadcastTxAsync(IOperationalTransaction tx, string transaction)
+        public async Task BroadcastAsync(IOperation operation, string transaction)
         {
             try
             {
                 var transactionHash = await SendRpcAsync<string>(RPCOperations.sendrawtransaction, transaction);
 
-                await _operationRepository.UpdateAsync(tx.OperationId, signedTransaction: transaction,
+                await _operationRepository.UpdateAsync(operation.OperationId, signedTransaction: transaction,
                     sentUtc: DateTime.UtcNow, hash: transactionHash);
             }
             catch (RPCException ex)
             {
-                await _operationRepository.UpdateAsync(tx.OperationId, signedTransaction: transaction,
+                await _operationRepository.UpdateAsync(operation.OperationId, signedTransaction: transaction,
                     failedUtc: DateTime.UtcNow, error: ex.ToString());
             }
         }
 
-        public async Task<IOperationalTransaction> GetOperationalTxAsync(Guid operationId)
+        public async Task<IOperation> GetOperationAsync(Guid operationId)
         {
             return await _operationRepository.GetAsync(operationId);
         }
 
-        public async Task<bool> TryDeleteOperationalTxAsync(Guid operationId)
+        public async Task<bool> TryDeleteOperationAsync(Guid operationId)
         {
-            var tx = await _operationRepository.GetAsync(operationId);
-            if (tx.State != OperationState.Deleted)
+            var operation = await _operationRepository.GetAsync(operationId);
+            if (operation.State != OperationState.Deleted)
             {
                 await _operationRepository.UpdateAsync(operationId, deletedUtc: DateTime.UtcNow);
                 return true;
@@ -154,59 +155,45 @@ namespace Lykke.Service.Zcash.Api.Services
         {
             var settings = await LoadStoredSettingsAsync();
 
-            var recent = await SendRpcAsync<RecentTransactionSummary>(RPCOperations.listsinceblock,
-                settings.LastBlockHash, settings.ConfirmationLevel, 1);
+            var recent = await SendRpcAsync<RecentResult>(RPCOperations.listsinceblock,
+                settings.LastBlockHash, 
+                settings.ConfirmationLevel, 
+                1);
 
-            foreach (var transaction in recent.GetConfirmed(settings.ConfirmationLevel)) 
+            var recentTransactions = from t in recent.Transactions
+                                     where t.Category == Constants.TransactionOperations.Send || t.Category == Constants.TransactionOperations.Receive
+                                     where t.Confirmations >= settings.ConfirmationLevel
+                                     group t by t.TxId into g
+                                     select new
+                                     {
+                                         Time = g.FirstOrDefault()?.BlockTime.FromUnixDateTime(),
+                                         Hash = g.Key,
+                                     };
+
+            foreach (var transaction in recentTransactions)
             {
-                var operationId = await _operationRepository.GetOperationIdAsync(transaction.Hash, transaction.ToAddress);
+                var transactionOperations = new RawTransactionOperation[0];
 
-                var from = new string[0];
+                var operation = await _operationRepository.GetAsync(transaction.Hash);
 
-                if (operationId.HasValue)
+                if (operation != null)
                 {
-                    var tx = await _operationRepository.UpdateAsync(operationId.Value,
-                        completedUtc: transaction.TimestampUtc);
+                    await _operationRepository.UpdateAsync(operation.OperationId, 
+                        completedUtc: transaction.Time);
 
-                    // for operation we exactly know "from" address 
-                    from = new string[1]
-                    {
-                        tx.FromAddress
-                    };
+                    transactionOperations = operation.GetTransactionOperations();
                 }
                 else
                 {
-                    // for external transaction we get all original "from" addresses out of the blockchain
-                    from = await GetSendersAsync(transaction.Hash);
+                    transactionOperations = (await GetRawTransactionAsync(transaction.Hash)).GetOperations();
                 }
 
-                // for transaction with multiple inputs it is 
-                // hardly possible to determine "from" address exactly,
-                // so we use concatenated list of all "from" addresses
-                var fromAddress = string.Join(",", from);
-
-                // for "to" history we must check only if "to" address is observable
-                var observables = new string[]
+                foreach (var top in transactionOperations)
                 {
-                    transaction.ToAddress
-                };
-
-                // for "from" history we must check every "from" address if it is observable,
-                // if several of them are, then we store similar historical entries
-                // for all of them, i.e. that might mean: 
-                // - address A was affected by transfer from "A,B,C,.." to "T"
-                // - address C was affected by transfer from "A,B,C,.." to "T"
-                if (transaction.ObservationSubject == ObservationSubject.From)
-                {
-                    observables = from; 
-                }
-
-                foreach (var address in observables)
-                {
-                    if (await IsObservableAsync(transaction.ObservationSubject, address))
+                    if (await IsObservableAsync(top.Category, top.AffectedAddress))
                     {
-                        await _historyRepository.UpsertAsync(transaction.ObservationSubject, operationId ?? Guid.Empty,
-                            transaction.Hash, transaction.TimestampUtc, fromAddress, transaction.ToAddress, transaction.Amount, transaction.AssetId);
+                        await _historyRepository.UpsertAsync(top.Category, top.AffectedAddress,
+                            top.Timestamp, top.Hash, top.OperationId, top.FromAddress, top.ToAddress, top.Amount, top.AssetId);
                     }
                 }
             }
@@ -292,14 +279,30 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<RawTransaction> GetRawTransactionAsync(string transactionHash)
         {
-            var tx = await SendRpcAsync<RawTransaction>(RPCOperations.getrawtransaction, transactionHash, 1);
-            if (tx == null)
+            async Task<RawTransaction> InternalGet(string hash)
             {
-                throw new InvalidOperationException(
-                    $"Transaction {transactionHash} not found. Consider restarting zcashd daemon with txindex=1 option.");
+                var tx = await SendRpcAsync<RawTransaction>(RPCOperations.getrawtransaction, hash, 1);
+                if (tx == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Transaction {hash} not found. Consider restarting zcashd daemon with txindex=1 option.");
+                }
+
+                return tx;
+            };
+
+            var curr = await InternalGet(transactionHash);
+
+            foreach (var vin in curr.Vin)
+            {
+                var prev = await InternalGet(vin.TxId);
+                var vout = prev.Vout.OrderBy(x => x.N).Skip((int)vin.Vout).First();
+
+                vin.Addresses = vout.ScriptPubKey.Addresses;
+                vin.Value = vout.Value;
             }
 
-            return tx;
+            return curr;
         }
 
         public async Task<T> SendRpcAsync<T>(RPCOperations command, params object[] parameters)

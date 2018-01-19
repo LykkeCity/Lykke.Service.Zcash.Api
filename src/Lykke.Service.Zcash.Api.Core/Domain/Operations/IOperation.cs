@@ -4,8 +4,9 @@ using System.Text;
 
 namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 {
-    public interface IOperationalTransaction : ITransaction
+    public interface IOperation
     {
+        Guid OperationId { get; }
         OperationState State { get; }
         DateTime BuiltUtc { get; }
         DateTime? SentUtc { get; }
@@ -14,7 +15,11 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
         DateTime? DeletedUtc { get; }
         string SignContext { get; }
         string SignedTransaction { get; }
+        string Hash { get; }
         string Error { get; }
-        decimal? Fee { get; }
+        decimal Amount { get; }
+        decimal Fee { get; }
+
+        IOperationItem[] Items { get; }
     }
 }

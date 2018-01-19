@@ -7,14 +7,14 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 {
     public interface IOperationRepository
     {
-        Task<IOperationalTransaction> CreateAsync(Guid operationId, string fromAddress, string toAddress, string assetId, decimal amount, decimal? fee, string signContext);
+        Task<IOperation> CreateAsync(Guid operationId, string fromAddress, string toAddress, string assetId, decimal amount, decimal fee, string signContext);
 
-        Task<IOperationalTransaction> UpdateAsync(Guid operationId,
+        Task<IOperation> UpdateAsync(Guid operationId,
             DateTime? sentUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, DateTime? deletedUtc = null,
             string signedTransaction = null, string hash = null, string error = null);
 
-        Task<IOperationalTransaction> GetAsync(Guid operationId);
+        Task<IOperation> GetAsync(Guid operationId, bool loadItems = true);
 
-        Task<Guid?> GetOperationIdAsync(string hash, string toAddress);
+        Task<IOperation> GetAsync(string transactionHash, bool loadItems = true);
     }
 }

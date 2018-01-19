@@ -14,42 +14,59 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
 {
     public class OperationRepository : IOperationRepository
     {
-        private INoSQLTableStorage<OperationalTransactionEntity> _operationStorage;
+        private INoSQLTableStorage<OperationEntity> _operationStorage;
+        private INoSQLTableStorage<OperationItemEntity> _operationItemStorage;
         private INoSQLTableStorage<IndexEntity> _indexStorage;
         private static string GetOperationPartitionKey(Guid operationId) => operationId.ToString();
         private static string GetOperationRowKey() => string.Empty;
+        private static string GetOperationItemPartitionKey(Guid operationId) => operationId.ToString();
+        private static string GetOperationItemRowKey() => string.Empty;
         private static string GetIndexPartitionKey(string hash) => hash;
-        private static string GetIndexRowKey(string addr) => addr;
+        private static string GetIndexRowKey() => string.Empty;
 
         public OperationRepository(IReloadingManager<string> connectionStringManager, ILog log)
         {
-            _operationStorage = AzureTableStorage<OperationalTransactionEntity>.Create(connectionStringManager, "ZcashOperations", log);
+            _operationStorage = AzureTableStorage<OperationEntity>.Create(connectionStringManager, "ZcashOperations", log);
+            _operationItemStorage = AzureTableStorage<OperationItemEntity>.Create(connectionStringManager, "ZcashOperationItems", log);
             _indexStorage = AzureTableStorage<IndexEntity>.Create(connectionStringManager, "ZcashOperationIndex", log);
         }
 
-        public async Task<IOperationalTransaction> CreateAsync(Guid operationId, 
-            string fromAddress, string toAddress, string assetId, decimal amount, decimal? fee, string signContext)
+        public async Task<IOperation> CreateAsync(Guid operationId, 
+            string fromAddress, string toAddress, string assetId, decimal amount, decimal fee, string signContext)
         {
-            var partitionKey = GetOperationPartitionKey(operationId);
-            var rowKey = GetOperationRowKey();
-            var entity = new OperationalTransactionEntity(partitionKey, rowKey)
+            var operationItemEntity = new OperationItemEntity()
             {
-                FromAddress = fromAddress,
-                ToAddress = toAddress,
+                PartitionKey = GetOperationItemPartitionKey(operationId),
+                RowKey = GetOperationItemRowKey(),
+                Amount = amount,
                 AssetId = assetId,
+                FromAddress = fromAddress,
+                ToAddress = toAddress
+            };
+
+            var operationEntity = new OperationEntity()
+            {
+                PartitionKey = GetOperationPartitionKey(operationId),
+                RowKey = GetOperationRowKey(),
                 Amount = amount,
                 Fee = fee,
                 SignContext = signContext,
                 State = OperationState.Built,
-                BuiltUtc = DateTime.UtcNow
+                BuiltUtc = DateTime.UtcNow,
+                Items = new IOperationItem[]
+                {
+                    operationItemEntity
+                }
             };
 
-            await _operationStorage.InsertAsync(entity);
+            await _operationStorage.InsertAsync(operationEntity);
 
-            return entity;
+            await _operationItemStorage.InsertAsync(operationItemEntity);
+
+            return operationEntity;
         }
 
-        public async Task<IOperationalTransaction> UpdateAsync(Guid operationId,
+        public async Task<IOperation> UpdateAsync(Guid operationId,
             DateTime? sentUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, DateTime? deletedUtc = null,
             string signedTransaction = null, string hash = null, string error = null)
         {
@@ -67,28 +84,42 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                 return e;
             });
 
-            await UpsertIndexAsync(hash, entity.ToAddress, operationId);
+            await UpsertIndexAsync(hash, operationId);
 
             return entity;
         }
 
-        public async Task<IOperationalTransaction> GetAsync(Guid operationId)
+        public async Task<IOperation> GetAsync(Guid operationId, bool loadItems = true)
         {
-            var partitionKey = GetOperationPartitionKey(operationId);
+            var partitionKKey = GetOperationPartitionKey(operationId);
             var rowKey = GetOperationRowKey();
+            var operation = await _operationStorage.GetDataAsync(partitionKKey, rowKey);
 
-            return await _operationStorage.GetDataAsync(partitionKey, rowKey);
+            if (loadItems && operation != null)
+            {
+                operation.Items = (await _operationItemStorage.GetDataAsync(GetOperationItemPartitionKey(operationId))).ToArray();    
+            }
+
+            return operation;
         }
 
-        public async Task<Guid?> GetOperationIdAsync(string hash, string toAddress)
+        public async Task<IOperation> GetAsync(string hash, bool loadItems = true)
         {
             var partitionKey = GetIndexPartitionKey(hash);
-            var rowKey = GetIndexRowKey(toAddress);
+            var rowKey = GetIndexRowKey();
+            var entity = await _indexStorage.GetDataAsync(partitionKey, rowKey);
 
-            return (await _indexStorage.GetDataAsync(partitionKey, rowKey))?.OperationId;
+            if (entity != null)
+            {
+                return await GetAsync(entity.OperationId, loadItems);
+            }
+            else
+            {
+                return null;
+            }
         }
 
-        public async Task UpsertIndexAsync(string hash, string toAddress, Guid operationId)
+        public async Task UpsertIndexAsync(string hash, Guid operationId)
         {
             if (!string.IsNullOrWhiteSpace(hash))
             {
@@ -96,7 +127,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                     new IndexEntity
                     {
                         PartitionKey = GetIndexPartitionKey(hash),
-                        RowKey = GetIndexRowKey(toAddress),
+                        RowKey = GetIndexRowKey(),
                         OperationId = operationId
                     });
             }   

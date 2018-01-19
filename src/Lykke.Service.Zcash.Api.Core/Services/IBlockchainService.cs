@@ -21,7 +21,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// If true then fees will be subtracted from <paramref name="amount"/>, otherwise fees will be added to <paramref name="amount"/>
         /// </param>
         /// <returns>Observable transaction</returns>
-        Task<IOperationalTransaction> BuildNotSignedTxAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees);
+        Task<IOperation> BuildAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees);
 
         /// <summary>
         /// Sends transaprent transaction to the Zcash blockchain
@@ -29,21 +29,21 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// <param name="tx">Observable transaction</param>
         /// <param name="transaction">Signed transaction in HEX format</param>
         /// <returns></returns>
-        Task BroadcastTxAsync(IOperationalTransaction tx, string transaction);
+        Task BroadcastAsync(IOperation tx, string transaction);
 
         /// <summary>
         /// Returns observable transaction by operation ID, or null if transaction not found.
         /// </summary>
         /// <param name="operationId">Operation identifier</param>
         /// <returns></returns>
-        Task<IOperationalTransaction> GetOperationalTxAsync(Guid operationId);
+        Task<IOperation> GetOperationAsync(Guid operationId);
 
         /// <summary>
         /// Removes transactions from observation list.
         /// </summary>
         /// <param name="operationIds">Array of operation identifiers</param>
         /// <returns>True, if tx successfully deleted, false if tx is not observed</returns>
-        Task<bool> TryDeleteOperationalTxAsync(Guid operationId);
+        Task<bool> TryDeleteOperationAsync(Guid operationId);
 
         /// <summary>
         /// Updates observable transactions state and adds new transactions to history.

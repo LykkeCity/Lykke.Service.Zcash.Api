@@ -1,14 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using Common;
-using Common.Log;
 using Lykke.Common.Api.Contract.Responses;
 using Lykke.Common.ApiLibrary.Contract;
-using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
-using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain.Operations;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
@@ -48,13 +42,13 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return StatusCode(StatusCodes.Status406NotAcceptable, ErrorResponse.Create($"{amount} is less than minimal fee"));
             }
 
-            var tx =
-                (await _blockchainService.GetOperationalTxAsync(request.OperationId)) ??
-                (await _blockchainService.BuildNotSignedTxAsync(request.OperationId, from, to, amount, asset, request.IncludeFee));
+            var operation =
+                (await _blockchainService.GetOperationAsync(request.OperationId)) ??
+                (await _blockchainService.BuildAsync(request.OperationId, from, to, amount, asset, request.IncludeFee));
 
             return Ok(new BuildTransactionResponse
             {
-                TransactionContext = tx.SignContext
+                TransactionContext = operation.SignContext
             });
         }
 
@@ -70,20 +64,20 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return BadRequest(ErrorResponseFactory.Create(ModelState));
             }
 
-            var tx = await _blockchainService.GetOperationalTxAsync(request.OperationId);
+            var op = await _blockchainService.GetOperationAsync(request.OperationId);
 
-            if (tx == null)
+            if (op == null)
             {
                 return StatusCode(StatusCodes.Status404NotFound,
                     ErrorResponse.Create("Transaction must be built beforehand by Zcash API to be successfully broadcasted then"));
             }
-            else if (tx.State == OperationState.Sent && request.SignedTransaction == tx.SignedTransaction)
+            else if (op.State == OperationState.Sent && request.SignedTransaction == op.SignedTransaction)
             {
                 return StatusCode(StatusCodes.Status409Conflict,
                     ErrorResponse.Create("Transaction already sent earlier"));
             }
 
-            await _blockchainService.BroadcastTxAsync(tx, request.SignedTransaction);
+            await _blockchainService.BroadcastAsync(op, request.SignedTransaction);
             
             return Ok();
         }
@@ -92,7 +86,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<BroadcastedTransactionResponse> GetBroadcasted([FromRoute]Guid operationId)
         {
-            return (await _blockchainService.GetOperationalTxAsync(operationId))?.ToBroadcastedResponse();
+            return (await _blockchainService.GetOperationAsync(operationId))?.ToBroadcastedResponse();
         }
 
         [HttpDelete("broadcast/{operationId}")]
@@ -100,7 +94,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> DeleteBroadcasted([FromRoute]Guid operationId)
         {
-            if (await _blockchainService.TryDeleteOperationalTxAsync(operationId))
+            if (await _blockchainService.TryDeleteOperationAsync(operationId))
                 return Ok();
             else
                 return NoContent();

@@ -21,6 +21,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Models\**" />
+    <EmbeddedResource Remove="Models\**" />
+    <None Remove="Models\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -57,10 +63,6 @@
     <ProjectReference Include="..\Lykke.Service.Zcash.Api.AzureRepositories\Lykke.Service.Zcash.Api.AzureRepositories.csproj" />
     <ProjectReference Include="..\Lykke.Service.Zcash.Api.Core\Lykke.Service.Zcash.Api.Core.csproj" />
     <ProjectReference Include="..\Lykke.Service.Zcash.Api.Services\Lykke.Service.Zcash.Api.Services.csproj" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <Folder Include="Models\" />
   </ItemGroup>
 
   <Target Name="PrepublishScript" BeforeTargets="PrepareForPublish">

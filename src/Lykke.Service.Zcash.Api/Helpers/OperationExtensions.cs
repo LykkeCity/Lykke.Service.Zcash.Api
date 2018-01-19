@@ -4,9 +4,9 @@ using Lykke.Service.BlockchainApi.Contract.Transactions;
 
 namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 {
-    public static class TransactionExtensions
+    public static class OperationExtensions
     {
-        public static BroadcastedTransactionResponse ToBroadcastedResponse(this IOperationalTransaction self)
+        public static BroadcastedTransactionResponse ToBroadcastedResponse(this IOperation self)
         {
             return new BroadcastedTransactionResponse
             {

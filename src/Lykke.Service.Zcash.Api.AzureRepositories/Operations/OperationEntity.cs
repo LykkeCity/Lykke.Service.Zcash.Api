@@ -10,36 +10,24 @@ using Microsoft.WindowsAzure.Storage.Table;
 namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
 {
     [ValueTypeMergingStrategy(ValueTypeMergingStrategy.UpdateAlways)]
-    public class OperationalTransactionEntity : AzureTableEntity, IOperationalTransaction
+    public class OperationEntity : AzureTableEntity, IOperation
     {
-        public OperationalTransactionEntity()
+        public OperationEntity()
         {
         }
 
-        public OperationalTransactionEntity(string partitionKey, string rowKey)
+        public OperationEntity(string partitionKey, string rowKey)
         {
             PartitionKey = partitionKey;
             RowKey = rowKey;
         }
 
         [IgnoreProperty]
-        public Guid OperationId
-        {
-            get => Guid.Parse(RowKey);
-            set => RowKey = value.ToString();
-        }
+        public Guid OperationId { get => Guid.Parse(PartitionKey); }
 
         [IgnoreProperty]
-        public DateTime TimestampUtc
-        {
-            get => FailedUtc ?? CompletedUtc ?? SentUtc ?? BuiltUtc;
-        }
+        public IOperationItem[] Items { get; set; }
 
-        public string FromAddress { get; set; }
-        public string ToAddress { get; set; }
-        public string AssetId { get; set; }
-        public decimal Amount { get; set; }
-        public string Hash { get; set; }
         public OperationState State { get; set; }
         public DateTime BuiltUtc { get; set; }
         public DateTime? SentUtc { get; set; }
@@ -48,7 +36,10 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
         public DateTime? DeletedUtc { get; set; }
         public string SignContext { get; set; }
         public string SignedTransaction { get; set; }
+        public string Hash { get; set; }
         public string Error { get; set; }
-        public decimal? Fee { get; set; }
+        public decimal Amount { get; set; }
+        public decimal Fee { get; set; }
+
     }
 }
