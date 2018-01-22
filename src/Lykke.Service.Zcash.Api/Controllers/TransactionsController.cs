@@ -52,6 +52,13 @@ namespace Lykke.Service.Zcash.Api.Controllers
             });
         }
 
+        [HttpPut]
+        [ProducesResponseType(StatusCodes.Status501NotImplemented)]
+        public async Task<IActionResult> Rebuild([FromRoute]Guid operationId)
+        {
+            return StatusCode(StatusCodes.Status501NotImplemented);
+        }
+
         [HttpPost("broadcast")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]

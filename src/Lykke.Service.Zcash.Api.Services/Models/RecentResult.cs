@@ -16,14 +16,10 @@ namespace Lykke.Service.Zcash.Api.Services.Models
 
         public class RecentTransaction
         {
-            public string Address { get; set; }
-            public decimal Amount { get; set; }
-            public decimal? Fee { get; set; }
-            public uint Vout { get; set; }
+            public string Category { get; set; }
             public string TxId { get; set; }
             public uint BlockTime { get; set; }
             public long Confirmations { get; set; } // can be -1 for unconfirmed
-            public string Category { get; set; }
         }
     }
 }

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain;
 
 namespace Lykke.Service.Zcash.Api.Services.Models
@@ -12,16 +11,15 @@ namespace Lykke.Service.Zcash.Api.Services.Models
         public Input[] Vin { get; set; }
         public Output[] Vout { get; set; }
 
-        public RawTransactionOperation[] GetOperations()
+        public RawTransactionAction[] GetActions()
         {
             var from = (
                 from item in Vin
                 from addr in item.Addresses
                 group item by addr into g
-                select new RawTransactionOperation
+                select new RawTransactionAction
                 {
-                    Category = Constants.TransactionOperations.Send,
-                    AffectedAddress = g.Key,
+                    Category = ObservationCategory.From,
                     FromAddress = g.Key,
                     AssetId = Asset.Zec.Id,
                     Amount = g.Sum(v => v.Value)
@@ -34,10 +32,9 @@ namespace Lykke.Service.Zcash.Api.Services.Models
                 from item in Vout
                 from addr in item.ScriptPubKey.Addresses
                 group item by addr into g
-                select new RawTransactionOperation
+                select new RawTransactionAction
                 {
-                    Category = Constants.TransactionOperations.Receive,
-                    AffectedAddress = g.Key,
+                    Category = ObservationCategory.To,
                     ToAddress = g.Key,
                     AssetId = Asset.Zec.Id,
                     Amount = g.Sum(v => v.Value)
@@ -49,10 +46,10 @@ namespace Lykke.Service.Zcash.Api.Services.Models
             var fromAddresses = string.Join(',', from.Keys);
             var toAddresses = string.Join(',', to.Keys);
 
-            IEnumerable<RawTransactionOperation> Weed(
-                Dictionary<string, (RawTransactionOperation operation, decimal originalAmount)> left, 
-                Dictionary<string, (RawTransactionOperation operation, decimal originalAmount)> right, 
-                Action<RawTransactionOperation> setAddresses)
+            IEnumerable<RawTransactionAction> Weed(
+                Dictionary<string, (RawTransactionAction operation, decimal originalAmount)> left, 
+                Dictionary<string, (RawTransactionAction operation, decimal originalAmount)> right, 
+                Action<RawTransactionAction> setAddresses)
             {
                 foreach (var k in left.Keys)
                 {

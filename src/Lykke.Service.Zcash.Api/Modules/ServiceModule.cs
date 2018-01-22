@@ -1,14 +1,21 @@
 ﻿using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using Common.Log;
-using Lykke.Service.BlockchainSignService.Client;
-using Lykke.Service.Zcash.Api.AzureRepositories;
+using Lykke.Service.Zcash.Api.AzureRepositories.Addresses;
+using Lykke.Service.Zcash.Api.AzureRepositories.History;
+using Lykke.Service.Zcash.Api.AzureRepositories.Operations;
+using Lykke.Service.Zcash.Api.AzureRepositories.Settings;
+using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
+using Lykke.Service.Zcash.Api.Core.Domain.History;
+using Lykke.Service.Zcash.Api.Core.Domain.Operations;
+using Lykke.Service.Zcash.Api.Core.Domain.Settings;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
 using Lykke.Service.Zcash.Api.PeriodicalHandlers;
 using Lykke.Service.Zcash.Api.Services;
 using Lykke.SettingsReader;
 using Microsoft.Extensions.DependencyInjection;
+using NBitcoin.RPC;
 
 namespace Lykke.Service.Zcash.Api.Modules
 {
@@ -49,19 +56,30 @@ namespace Lykke.Service.Zcash.Api.Modules
             builder.RegisterType<ShutdownManager>()
                 .As<IShutdownManager>();
 
-            builder.RegisterBlockchainSignServiceClient(_settings.CurrentValue.SignApiUrl, _log);
+            builder.RegisterType<AddressRepository>()
+                .As<IAddressRepository>()
+                .WithParameter(TypedParameter.From(_settings.Nested(s => s.Db.DataConnString)));
 
-            builder.RegisterType<InsightClient>()
-                .As<IInsightClient>()
-                .WithParameter(TypedParameter.From(_settings.CurrentValue.InsightUrl));
+            builder.RegisterType<HistoryRepository>()
+                .As<IHistoryRepository>()
+                .WithParameter(TypedParameter.From(_settings.Nested(s => s.Db.DataConnString)));
 
-            builder.RegisterType<TransactionRepository>()
+            builder.RegisterType<OperationRepository>()
                 .As<IOperationRepository>()
                 .WithParameter(TypedParameter.From(_settings.Nested(s => s.Db.DataConnString)));
+
+            builder.RegisterType<SettingsRepository>()
+                .As<ISettingsRepository>()
+                .WithParameter(TypedParameter.From(_settings.Nested(s => s.Db.DataConnString)));
+
+            builder.RegisterInstance(new RPCClient(_settings.CurrentValue.RpcAuthenticationString, _settings.CurrentValue.RpcUrl, NBitcoin.Zcash.ZcashNetworks.Testnet))
+                .AsSelf();
 
             builder.RegisterType<BlockchainService>()
                 .As<IBlockchainService>()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue));
+
+            RegisterPeriodicalHandlers(builder);
 
             // TODO: Add your dependencies here
 
@@ -70,7 +88,7 @@ namespace Lykke.Service.Zcash.Api.Modules
 
         private void RegisterPeriodicalHandlers(ContainerBuilder builder)
         {
-            builder.RegisterType<TransactionHandler>()
+            builder.RegisterType<HistoryHandler>()
                 .As<IStartable>()
                 .AutoActivate()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue.IndexInterval))

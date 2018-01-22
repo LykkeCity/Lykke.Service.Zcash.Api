@@ -7,8 +7,9 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.History
 {
     public interface IHistoryRepository
     {
-        Task UpsertAsync(ObservationSubject subject, Guid operationId, string hash, DateTime timestampUtc, string fromAddress, string toAddress, decimal amount, string assetId);
+        Task UpsertAsync(ObservationCategory category, string affectedAddress, DateTime timestampUtc, string hash,
+            Guid? operationId, string fromAddress, string toAddress, decimal amount, string assetId);
 
-        Task<IEnumerable<ITransaction>> GetByAddressAsync(ObservationSubject type, string address, string afterHash = null, int take = 100);
+        Task<IEnumerable<IHistoryItem>> GetByAddressAsync(ObservationCategory category, string address, string afterHash = null, int take = 100);
     }
 }

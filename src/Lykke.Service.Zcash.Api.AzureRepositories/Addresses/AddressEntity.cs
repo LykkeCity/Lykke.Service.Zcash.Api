@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using Lykke.AzureStorage.Tables;
+using Lykke.Service.Zcash.Api.Core.Domain;
 using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 using Microsoft.WindowsAzure.Storage.Table;
 
@@ -20,9 +21,9 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
         }
 
         [IgnoreProperty]
-        public ObservationSubject ObservationSubject
+        public ObservationCategory ObservationSubject
         {
-            get => (ObservationSubject)Enum.Parse(typeof(ObservationSubject), PartitionKey);
+            get => (ObservationCategory)Enum.Parse(typeof(ObservationCategory), PartitionKey);
         }
 
         [IgnoreProperty]

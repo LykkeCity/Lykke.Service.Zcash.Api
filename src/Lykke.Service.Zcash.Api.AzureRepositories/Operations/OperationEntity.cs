@@ -38,6 +38,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
         public string SignedTransaction { get; set; }
         public string Hash { get; set; }
         public string Error { get; set; }
+        public string AssetId { get; set; }
         public decimal Amount { get; set; }
         public decimal Fee { get; set; }
 

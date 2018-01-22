@@ -1,21 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using AzureStorage;
 using AzureStorage.Tables;
 using Common.Log;
-using Lykke.AzureStorage.Tables.Paging;
+using Lykke.Service.Zcash.Api.Core.Domain;
 using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 using Lykke.SettingsReader;
-using Microsoft.WindowsAzure.Storage.Table;
 
 namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
 {
     public class AddressRepository : IAddressRepository
     {
         private INoSQLTableStorage<AddressEntity> _tableStorage;
-        private static string GetPartitionKey(ObservationSubject subject) => Enum.GetName(typeof(ObservationSubject), subject);
+        private static string GetPartitionKey(ObservationCategory category) => Enum.GetName(typeof(ObservationCategory), category);
         private static string GetRowKey(string address) => address;
 
         public AddressRepository(IReloadingManager<string> connectionStringManager, ILog log)
@@ -23,33 +21,33 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
             _tableStorage = AzureTableStorage<AddressEntity>.Create(connectionStringManager, "ZcashAddresses", log);
         }
 
-        public async Task<bool> CreateIfNotExistsAsync(ObservationSubject subject, string address)
+        public async Task Create(ObservationCategory category, string address)
         {
-            var partitionKey = GetPartitionKey(subject);
+            var partitionKey = GetPartitionKey(category);
             var rowKey = GetRowKey(address);
 
-            return await _tableStorage.CreateIfNotExistsAsync(new AddressEntity(partitionKey, rowKey));
+            await _tableStorage.InsertAsync(new AddressEntity(partitionKey, rowKey));
         }
 
-        public async Task<bool> DeleteIfExistAsync(ObservationSubject subject, string address)
+        public async Task Delete(ObservationCategory category, string address)
         {
-            var partitionKKey = GetPartitionKey(subject);
+            var partitionKKey = GetPartitionKey(category);
             var rowKey = GetRowKey(address);
 
-            return await _tableStorage.DeleteIfExistAsync(partitionKKey, rowKey);
+            await _tableStorage.DeleteAsync(partitionKKey, rowKey);
         }
 
-        public async Task<IAddress> GetAsync(ObservationSubject subject, string address)
+        public async Task<IAddress> GetAsync(ObservationCategory category, string address)
         {
-            var partitionKKey = GetPartitionKey(subject);
+            var partitionKKey = GetPartitionKey(category);
             var rowKey = GetRowKey(address);
 
             return await _tableStorage.GetDataAsync(partitionKKey, rowKey);
         }
 
-        public async Task<(IEnumerable<IAddress> items, string continuation)> GetBySubjectAsync(ObservationSubject subject, string continuation = null, int take = 100)
+        public async Task<(IEnumerable<IAddress> items, string continuation)> GetBySubjectAsync(ObservationCategory category, string continuation = null, int take = 100)
         {
-            return await _tableStorage.GetDataWithContinuationTokenAsync(GetPartitionKey(subject), take, continuation);
+            return await _tableStorage.GetDataWithContinuationTokenAsync(GetPartitionKey(category), take, continuation);
         }
     }
 }

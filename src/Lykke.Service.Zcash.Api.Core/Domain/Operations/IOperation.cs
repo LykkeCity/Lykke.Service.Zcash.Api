@@ -17,6 +17,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
         string SignedTransaction { get; }
         string Hash { get; }
         string Error { get; }
+        string AssetId { get; }
         decimal Amount { get; }
         decimal Fee { get; }
 

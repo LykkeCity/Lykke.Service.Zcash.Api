@@ -78,7 +78,7 @@ namespace Lykke.Service.Zcash.Api
                     app.UseDeveloperExceptionPage();
                 }
 
-                app.UseLykkeMiddleware("Zcash.Api", ex => new { Message = "Technical problem" });
+                app.UseLykkeMiddleware("Zcash.Api", ex => new { Message = ex.ToString() });
 
                 app.UseMvc();
                 app.UseSwagger(c =>

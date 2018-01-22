@@ -8,13 +8,13 @@ using Lykke.Service.Zcash.Api.Core.Services;
 
 namespace Lykke.Service.Zcash.Api.PeriodicalHandlers
 {
-    public class TransactionHandler : TimerPeriod
+    public class HistoryHandler : TimerPeriod
     {
         private ILog _log;
         private IBlockchainService _blockchainService;
 
-        public TransactionHandler(int trackingInterval, ILog log, IBlockchainService blockchainService) :
-            base(nameof(TransactionHandler), trackingInterval, log)
+        public HistoryHandler(int trackingInterval, ILog log, IBlockchainService blockchainService) :
+            base(nameof(HistoryHandler), trackingInterval, log)
         {
             _log = log;
             _blockchainService = blockchainService;
@@ -28,7 +28,7 @@ namespace Lykke.Service.Zcash.Api.PeriodicalHandlers
             }
             catch (Exception ex)
             {
-                await _log.WriteErrorAsync(nameof(TransactionHandler), nameof(Execute), null, ex);
+                await _log.WriteErrorAsync(nameof(HistoryHandler), nameof(Execute), null, ex);
             }
         }
     }

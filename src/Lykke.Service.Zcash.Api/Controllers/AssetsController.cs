@@ -17,7 +17,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [HttpGet]
         public PaginationResponse<AssetContract> GetAssetList(
             [FromQuery]string continuation = null, 
-            [FromQuery]int take = 100)
+            [FromQuery]int? take = 100)
         {
             return PaginationResponse.From(null, 
                 Constants.Assets.Values.Select(v => v.ToAssetContract()).ToArray());

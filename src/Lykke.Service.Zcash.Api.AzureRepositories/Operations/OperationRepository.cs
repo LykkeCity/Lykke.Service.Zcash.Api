@@ -50,6 +50,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                 RowKey = GetOperationRowKey(),
                 Amount = amount,
                 Fee = fee,
+                AssetId = assetId,
                 SignContext = signContext,
                 State = OperationState.Built,
                 BuiltUtc = DateTime.UtcNow,
@@ -109,14 +110,12 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
             var rowKey = GetIndexRowKey();
             var entity = await _indexStorage.GetDataAsync(partitionKey, rowKey);
 
-            if (entity != null)
+            if (loadItems && entity != null)
             {
                 return await GetAsync(entity.OperationId, loadItems);
             }
-            else
-            {
-                return null;
-            }
+
+            return null;
         }
 
         public async Task UpsertIndexAsync(string hash, Guid operationId)

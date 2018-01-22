@@ -5,9 +5,8 @@ namespace Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings
     public class ZcashApiSettings : ISettings
     {
         public DbSettings Db { get; set; }
-        public string SignApiUrl { get; set; }
-        public string InsightUrl { get; set; }
-        public string[] SourceWallets { get; set; }
+        public string RpcAuthenticationString { get; set; }
+        public string RpcUrl { get; set; }
         public decimal FeePerKb { get; set; }
         public decimal MinFee { get; set; }
         public decimal MaxFee { get; set; }

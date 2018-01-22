@@ -11,9 +11,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
             return new BroadcastedTransactionResponse
             {
                 Amount = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
-                Fee = self.Fee.HasValue 
-                    ? Conversions.CoinsToContract(self.Fee.Value, Constants.Assets[self.AssetId].DecimalPlaces) 
-                    : null,
+                Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
                 Error = self.Error,
                 Hash = self.Hash,
                 OperationId = self.OperationId,
@@ -25,20 +23,6 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
         public static BroadcastedTransactionState ToBroadcastedState(this OperationState self)
         {
             return (BroadcastedTransactionState)((int)self + 1);
-        }
-
-        public static HistoricalTransactionContract ToHistoricalContract(this ITransaction self)
-        {
-            return new HistoricalTransactionContract
-            {
-                Amount = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
-                AssetId = self.AssetId,
-                FromAddress = self.FromAddress,
-                Hash = self.Hash,
-                OperationId = self.OperationId,
-                Timestamp = self.TimestampUtc,
-                ToAddress = self.ToAddress
-            };
         }
     }
 }

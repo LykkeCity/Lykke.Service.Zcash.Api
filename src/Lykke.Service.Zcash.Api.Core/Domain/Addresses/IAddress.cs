@@ -6,7 +6,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Addresses
 {
     public interface IAddress
     {
-        ObservationSubject ObservationSubject { get; }
+        ObservationCategory ObservationSubject { get; }
         string Address { get; }
     }
 }

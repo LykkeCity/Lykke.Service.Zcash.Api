@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Lykke.Service.Zcash.Api.Core.Domain
 {
-    public enum ObservationSubject
+    public enum ObservationCategory
     {
         Balance = 1,
         To = 2,

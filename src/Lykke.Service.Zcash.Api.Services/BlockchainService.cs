@@ -13,7 +13,6 @@ using Lykke.Service.Zcash.Api.Core.Domain.Settings;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
 using Lykke.Service.Zcash.Api.Services.Models;
-using MoreLinq;
 using NBitcoin;
 using NBitcoin.JsonConverters;
 using NBitcoin.RPC;
@@ -153,47 +152,49 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task HandleHistoryAsync()
         {
+            const string receiveCategory = "receive";
+            const string sendCategory = "send";
+
             var settings = await LoadStoredSettingsAsync();
 
             var recent = await SendRpcAsync<RecentResult>(RPCOperations.listsinceblock,
                 settings.LastBlockHash, 
                 settings.ConfirmationLevel, 
-                1);
+                true);
 
             var recentTransactions = from t in recent.Transactions
-                                     where t.Category == Constants.TransactionOperations.Send || t.Category == Constants.TransactionOperations.Receive
+                                     where t.Category == receiveCategory || t.Category == sendCategory
                                      where t.Confirmations >= settings.ConfirmationLevel
                                      group t by t.TxId into g
                                      select new
                                      {
-                                         Time = g.FirstOrDefault()?.BlockTime.FromUnixDateTime(),
+                                         TimestampUtc = g.First().BlockTime.FromUnixDateTime(),
                                          Hash = g.Key,
                                      };
 
             foreach (var transaction in recentTransactions)
             {
-                var transactionOperations = new RawTransactionOperation[0];
+                var transactionActions = new RawTransactionAction[0];
 
                 var operation = await _operationRepository.GetAsync(transaction.Hash);
 
                 if (operation != null)
                 {
-                    await _operationRepository.UpdateAsync(operation.OperationId, 
-                        completedUtc: transaction.Time);
+                    await _operationRepository.UpdateAsync(operation.OperationId, completedUtc: transaction.TimestampUtc);
 
-                    transactionOperations = operation.GetTransactionOperations();
+                    transactionActions = operation.GetRawTransactionActions();
                 }
                 else
                 {
-                    transactionOperations = (await GetRawTransactionAsync(transaction.Hash)).GetOperations();
+                    transactionActions = (await GetRawTransactionAsync(transaction.Hash)).GetActions();
                 }
 
-                foreach (var top in transactionOperations)
+                foreach (var action in transactionActions)
                 {
-                    if (await IsObservableAsync(top.Category, top.AffectedAddress))
+                    if (await IsObservableAsync(action.Category, action.AffectedAddress))
                     {
-                        await _historyRepository.UpsertAsync(top.Category, top.AffectedAddress,
-                            top.Timestamp, top.Hash, top.OperationId, top.FromAddress, top.ToAddress, top.Amount, top.AssetId);
+                        await _historyRepository.UpsertAsync(action.Category, action.AffectedAddress, transaction.TimestampUtc, transaction.Hash,
+                            operation?.OperationId, action.FromAddress, action.ToAddress, action.Amount, action.AssetId);
                     }
                 }
             }
@@ -201,16 +202,16 @@ namespace Lykke.Service.Zcash.Api.Services
             await SaveStoredSettingsAsync(recent.LastBlock);
         }
 
-        public async Task<IEnumerable<ITransaction>> GetHistoryAsync(ObservationSubject subject, string address, string afterHash = null, int take = 100)
+        public async Task<IEnumerable<IHistoryItem>> GetHistoryAsync(ObservationCategory category, string address, string afterHash = null, int take = 100)
         {
-            return await _historyRepository.GetByAddressAsync(subject, address, afterHash, take);
+            return await _historyRepository.GetByAddressAsync(category, address, afterHash, take);
         }
 
         public async Task<(string continuation, IEnumerable<AddressBalance> items)> GetBalancesAsync(string continuation = null, int take = 100)
         {
             var settings = await LoadStoredSettingsAsync();
 
-            var addressQuery = await _addressRepository.GetBySubjectAsync(ObservationSubject.Balance, continuation, take);
+            var addressQuery = await _addressRepository.GetBySubjectAsync(ObservationCategory.Balance, continuation, take);
 
             var utxoParams = new List<object>();
 
@@ -232,21 +233,36 @@ namespace Lykke.Service.Zcash.Api.Services
             return (addressQuery.continuation, balances);
         }
 
-        public async Task<bool> TryCreateObservableAddressAsync(ObservationSubject subject, string address)
+        public async Task<bool> TryCreateObservableAddressAsync(ObservationCategory category, string address)
         {
-            await SendRpcAsync(RPCOperations.importaddress, address, null, false);
+            var observableAddress = await _addressRepository.GetAsync(category, address);
 
-            return await _addressRepository.CreateIfNotExistsAsync(subject, address);
+            if (observableAddress == null)
+            {
+                await SendRpcAsync(RPCOperations.importaddress, address, string.Empty, false);
+                await _addressRepository.Create(category, address);
+                return true;
+            }
+
+            return false;
         }
 
-        public async Task<bool> TryDeleteObservableAddressAsync(ObservationSubject subject, string address)
+        public async Task<bool> TryDeleteObservableAddressAsync(ObservationCategory category, string address)
         {
-            return await _addressRepository.DeleteIfExistAsync(subject, address);
+            var observableAddress = await _addressRepository.GetAsync(category, address);
+
+            if (observableAddress != null)
+            {
+                await _addressRepository.Delete(category, address);
+                return true;
+            }
+
+            return false;
         }
 
-        public async Task<bool> IsObservableAsync(ObservationSubject subject, string address)
+        public async Task<bool> IsObservableAsync(ObservationCategory category, string address)
         {
-            return (await _addressRepository.GetAsync(subject, address)) != null;
+            return (await _addressRepository.GetAsync(category, address)) != null;
         }
 
         public async Task<string[]> GetSendersAsync(string transactionHash)

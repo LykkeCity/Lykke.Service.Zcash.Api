@@ -7,26 +7,24 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 {
     public static class OperationExtensions
     {
-        public static RawTransactionOperation[] GetTransactionOperations(this IOperation self)
+        public static RawTransactionAction[] GetRawTransactionActions(this IOperation self)
         {
             return self.Items
                 .SelectMany(item =>
                 {
-                    return new RawTransactionOperation[]
+                    return new RawTransactionAction[]
                     {
-                        new RawTransactionOperation
+                        new RawTransactionAction
                         {
-                            Category = Constants.TransactionOperations.Send,
-                            AffectedAddress = item.FromAddress,
+                            Category = ObservationCategory.From,
                             Amount = item.Amount,
                             AssetId = item.AssetId,
                             FromAddress = item.FromAddress,
                             ToAddress = item.ToAddress
                         },
-                        new RawTransactionOperation
+                        new RawTransactionAction
                         {
-                            Category = Constants.TransactionOperations.Receive,
-                            AffectedAddress = item.ToAddress,
+                            Category = ObservationCategory.To,
                             Amount = item.Amount,
                             AssetId = item.AssetId,
                             FromAddress = item.FromAddress,
