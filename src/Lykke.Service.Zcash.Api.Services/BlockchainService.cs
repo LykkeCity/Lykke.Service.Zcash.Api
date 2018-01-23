@@ -72,7 +72,8 @@ namespace Lykke.Service.Zcash.Api.Services
         {
             var settings = await LoadStoredSettingsAsync();
 
-            var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent, settings.ConfirmationLevel, int.MaxValue, from);
+            var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent, 
+                settings.ConfirmationLevel, int.MaxValue, new[] { from.ToString() });
 
             utxo = utxo
                 .OrderByDescending(uc => uc.Confirmations)
@@ -104,10 +105,10 @@ namespace Lykke.Service.Zcash.Api.Services
                     if (totalIn >= totalOut)
                     {
                         var tx = builder.SendFees(fee).BuildTransaction(sign: false);
-                        var signContext = Serializer.ToString((tx: tx, coins: builder.FindSpentCoins(tx)));
+                        var signContext = Serializer.ToString((tx, builder.FindSpentCoins(tx)));
 
-                        return await _operationRepository.CreateAsync(operationId, from.ToString(),
-                            to.ToString(), asset.Id, amount.ToUnit(asset.Unit), fee.ToUnit(asset.Unit), signContext);
+                        return await _operationRepository.CreateAsync(operationId,
+                            from.ToString(), to.ToString(), asset.Id, amount.ToUnit(asset.Unit), fee.ToUnit(asset.Unit), signContext);
                     }
                 }
             }
@@ -172,6 +173,8 @@ namespace Lykke.Service.Zcash.Api.Services
                                          Hash = g.Key,
                                      };
 
+            var recorded = 0;
+
             foreach (var transaction in recentTransactions)
             {
                 var transactionActions = new RawTransactionAction[0];
@@ -195,11 +198,17 @@ namespace Lykke.Service.Zcash.Api.Services
                     {
                         await _historyRepository.UpsertAsync(action.Category, action.AffectedAddress, transaction.TimestampUtc, transaction.Hash,
                             operation?.OperationId, action.FromAddress, action.ToAddress, action.Amount, action.AssetId);
+
+                        recorded++;
                     }
                 }
             }
 
             await SaveStoredSettingsAsync(recent.LastBlock);
+
+            await _log.WriteInfoAsync(nameof(HandleHistoryAsync), 
+                $"Range: [{settings.LastBlockHash} - {recent.LastBlock}]",
+                $"History handled. {recorded} of {recent.Transactions.Length} recorded");
         }
 
         public async Task<IEnumerable<IHistoryItem>> GetHistoryAsync(ObservationCategory category, string address, string afterHash = null, int take = 100)
@@ -211,15 +220,10 @@ namespace Lykke.Service.Zcash.Api.Services
         {
             var settings = await LoadStoredSettingsAsync();
 
-            var addressQuery = await _addressRepository.GetBySubjectAsync(ObservationCategory.Balance, continuation, take);
+            var addressQuery = await _addressRepository.GetByCategoryAsync(ObservationCategory.Balance, continuation, take);
 
-            var utxoParams = new List<object>();
-
-            utxoParams.Add(settings.ConfirmationLevel);
-            utxoParams.Add(int.MaxValue);
-            utxoParams.AddRange(addressQuery.items.Select(x => x.Address));
-
-            var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent, utxoParams.ToArray());
+            var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent,
+                settings.ConfirmationLevel, int.MaxValue, addressQuery.items.Select(x => x.Address).ToArray());
 
             var balances = utxo.GroupBy(x => x.Address)
                 .Select(g => new AddressBalance
@@ -235,12 +239,23 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<bool> TryCreateObservableAddressAsync(ObservationCategory category, string address)
         {
+            var addressInfo = await SendRpcAsync<AddressInfo>(RPCOperations.validateaddress, address);
+
+            if (!addressInfo.IsValid)
+            {
+                throw new InvalidOperationException($"Invalid Zcash address: {address}");
+            }
+
+            if (!addressInfo.IsMine && !addressInfo.IsWatchOnly)
+            {
+                await SendRpcAsync(RPCOperations.importaddress, address, string.Empty, false);
+            }
+
             var observableAddress = await _addressRepository.GetAsync(category, address);
 
             if (observableAddress == null)
             {
-                await SendRpcAsync(RPCOperations.importaddress, address, string.Empty, false);
-                await _addressRepository.Create(category, address);
+                await _addressRepository.CreateAsync(category, address);
                 return true;
             }
 
@@ -253,7 +268,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
             if (observableAddress != null)
             {
-                await _addressRepository.Delete(category, address);
+                await _addressRepository.DeleteAsync(category, address);
                 return true;
             }
 
@@ -344,7 +359,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<RPCResponse> SendRpcAsync(RPCOperations command, params object[] parameters)
         {
-            var result = await _rpcClient.SendCommandAsync(command, parameters);
+            var result = await _rpcClient.SendCommandAsync(new RPCRequest(command, parameters), false);
 
             result.ThrowIfError();
 

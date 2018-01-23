@@ -60,9 +60,9 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                 }
             };
 
-            await _operationStorage.InsertAsync(operationEntity);
+            await _operationStorage.InsertOrReplaceAsync(operationEntity);
 
-            await _operationItemStorage.InsertAsync(operationItemEntity);
+            await _operationItemStorage.InsertOrReplaceAsync(operationItemEntity);
 
             return operationEntity;
         }
@@ -75,6 +75,12 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
             var rowKey = GetOperationRowKey();
             var entity = await _operationStorage.MergeAsync(partitionKey, rowKey, e =>
             {
+                e.State =
+                    deletedUtc.HasValue ? OperationState.Deleted :
+                    failedUtc.HasValue ? OperationState.Failed :
+                    completedUtc.HasValue ? OperationState.Completed :
+                    sentUtc.HasValue ? OperationState.Sent :
+                    e.State;
                 e.SentUtc = sentUtc ?? e.SentUtc;
                 e.CompletedUtc = completedUtc ?? e.CompletedUtc;
                 e.FailedUtc = failedUtc ?? e.FailedUtc;

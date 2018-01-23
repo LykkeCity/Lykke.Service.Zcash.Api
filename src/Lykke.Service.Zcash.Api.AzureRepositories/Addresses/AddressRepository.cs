@@ -21,7 +21,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
             _tableStorage = AzureTableStorage<AddressEntity>.Create(connectionStringManager, "ZcashAddresses", log);
         }
 
-        public async Task Create(ObservationCategory category, string address)
+        public async Task CreateAsync(ObservationCategory category, string address)
         {
             var partitionKey = GetPartitionKey(category);
             var rowKey = GetRowKey(address);
@@ -29,7 +29,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
             await _tableStorage.InsertAsync(new AddressEntity(partitionKey, rowKey));
         }
 
-        public async Task Delete(ObservationCategory category, string address)
+        public async Task DeleteAsync(ObservationCategory category, string address)
         {
             var partitionKKey = GetPartitionKey(category);
             var rowKey = GetRowKey(address);
@@ -45,7 +45,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
             return await _tableStorage.GetDataAsync(partitionKKey, rowKey);
         }
 
-        public async Task<(IEnumerable<IAddress> items, string continuation)> GetBySubjectAsync(ObservationCategory category, string continuation = null, int take = 100)
+        public async Task<(IEnumerable<IAddress> items, string continuation)> GetByCategoryAsync(ObservationCategory category, string continuation = null, int take = 100)
         {
             return await _tableStorage.GetDataWithContinuationTokenAsync(GetPartitionKey(category), take, continuation);
         }

@@ -56,12 +56,12 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// <summary>
         /// Returns historical transaction data for specified address.
         /// </summary>
-        /// <param name="type"></param>
+        /// <param name="category"></param>
         /// <param name="address">Address</param>
         /// <param name="afterHash">Method returns transactions after transaction with specified hash</param>
         /// <param name="take">Count of transactions to return</param>
         /// <returns></returns>
-        Task<IEnumerable<IHistoryItem>> GetHistoryAsync(ObservationCategory type, string address, string afterHash = null, int take = 100);
+        Task<IEnumerable<IHistoryItem>> GetHistoryAsync(ObservationCategory category, string address, string afterHash = null, int take = 100);
 
         /// <summary>
         /// Returns balances of observable addresses.
@@ -76,14 +76,14 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// </summary>
         /// <param name="address">Zcash t-address</param>
         /// <returns>True, if address successfully created, false if address is already observed</returns>
-        Task<bool> TryCreateObservableAddressAsync(ObservationCategory subject, string address);
+        Task<bool> TryCreateObservableAddressAsync(ObservationCategory category, string address);
 
         /// <summary>
         /// Removes  address from observation list.
         /// </summary>
         /// <param name="address">Zcash t-address</param>
         /// <returns>True, if address successfully deleted, false if address is not observed</returns>
-        Task<bool> TryDeleteObservableAddressAsync(ObservationCategory subject, string address);
+        Task<bool> TryDeleteObservableAddressAsync(ObservationCategory category, string address);
 
         /// <summary>
         /// Checks if specified address is valid Zcash address

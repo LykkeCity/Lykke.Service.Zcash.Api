@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using System.Threading.Tasks;
 using Lykke.Common.Api.Contract.Responses;
 using Lykke.Common.ApiLibrary.Contract;
@@ -16,14 +17,10 @@ namespace Lykke.Service.Zcash.Api.Controllers
     public class TransactionsController : Controller
     {
         private readonly IBlockchainService _blockchainService;
-        private readonly ZcashApiSettings _settings;
 
-        public TransactionsController(
-            IBlockchainService blockchainService,
-            ZcashApiSettings settings)
+        public TransactionsController(IBlockchainService blockchainService)
         {
             _blockchainService = blockchainService;
-            _settings = settings;
         }
 
         [HttpPost]
@@ -37,24 +34,40 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return BadRequest(ErrorResponseFactory.Create(ModelState));
             }
 
-            if (amount <= Money.Coins(_settings.MinFee))
+            var operation = await _blockchainService.GetOperationAsync(request.OperationId);
+
+            if (operation != null && 
+                operation.State != OperationState.Built)
             {
-                return StatusCode(StatusCodes.Status406NotAcceptable, ErrorResponse.Create($"{amount} is less than minimal fee"));
+                var state = Enum.GetName(typeof(OperationState), operation.State).ToLower();
+
+                return StatusCode(StatusCodes.Status409Conflict,
+                    ErrorResponse.Create($"Operation is already {state}"));
             }
 
-            var operation =
-                (await _blockchainService.GetOperationAsync(request.OperationId)) ??
-                (await _blockchainService.BuildAsync(request.OperationId, from, to, amount, asset, request.IncludeFee));
+            //if (operation == null)
+            {
+                try
+                {
+                    operation = await _blockchainService.BuildAsync(request.OperationId,
+                        from, to, amount, asset, request.IncludeFee);
+                }
+                catch (NotEnoughFundsException ex)
+                {
+                    return StatusCode(StatusCodes.Status406NotAcceptable,
+                        ErrorResponse.Create(ex.Message));
+                }
+            }
 
             return Ok(new BuildTransactionResponse
             {
-                TransactionContext = operation.SignContext
+                TransactionContext = Convert.ToBase64String(Encoding.UTF8.GetBytes(operation.SignContext))
             });
         }
 
         [HttpPut]
         [ProducesResponseType(StatusCodes.Status501NotImplemented)]
-        public async Task<IActionResult> Rebuild([FromRoute]Guid operationId)
+        public IActionResult Rebuild([FromBody]RebuildTransactionRequest request)
         {
             return StatusCode(StatusCodes.Status501NotImplemented);
         }

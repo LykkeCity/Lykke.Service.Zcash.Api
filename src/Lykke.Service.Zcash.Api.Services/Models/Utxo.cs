@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using NBitcoin;
+using NBitcoin.DataEncoders;
 
 namespace Lykke.Service.Zcash.Api.Services.Models
 {
@@ -21,7 +22,7 @@ namespace Lykke.Service.Zcash.Api.Services.Models
 
         public ICoin AsCoin()
         {
-            return new Coin(uint256.Parse(TxId), Vout, Money, new Script(ScriptPubKey));
+            return new Coin(uint256.Parse(TxId), Vout, Money, new Script(Encoders.Hex.DecodeData(ScriptPubKey)));
         }
     }
 }
