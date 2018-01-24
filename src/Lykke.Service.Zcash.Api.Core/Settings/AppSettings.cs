@@ -5,7 +5,7 @@ namespace Lykke.Service.Zcash.Api.Core.Settings
 {
     public class AppSettings
     {
-        public ZcashApiSettings ZcashApiService { get; set; }
+        public ZcashApiSettings ZcashApi { get; set; }
         public SlackNotificationsSettings SlackNotifications { get; set; }
     }
 }

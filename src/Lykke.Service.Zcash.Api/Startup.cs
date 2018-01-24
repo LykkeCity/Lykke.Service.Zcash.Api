@@ -68,7 +68,7 @@ namespace Lykke.Service.Zcash.Api
 
                 Log = CreateLogWithSlack(services, appSettings);
 
-                builder.RegisterModule(new ServiceModule(appSettings.Nested(x => x.ZcashApiService), Log));
+                builder.RegisterModule(new ServiceModule(appSettings.Nested(x => x.ZcashApi), Log));
                 builder.Populate(services);
                 ApplicationContainer = builder.Build();
 
@@ -181,7 +181,7 @@ namespace Lykke.Service.Zcash.Api
 
             aggregateLogger.AddLog(consoleLogger);
 
-            var dbLogConnectionStringManager = settings.Nested(x => x.ZcashApiService.Db.LogsConnString);
+            var dbLogConnectionStringManager = settings.Nested(x => x.ZcashApi.Db.LogsConnString);
             var dbLogConnectionString = dbLogConnectionStringManager.CurrentValue;
 
             if (string.IsNullOrEmpty(dbLogConnectionString))

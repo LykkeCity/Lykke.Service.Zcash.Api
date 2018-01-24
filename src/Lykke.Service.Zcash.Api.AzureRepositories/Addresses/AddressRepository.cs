@@ -18,7 +18,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
 
         public AddressRepository(IReloadingManager<string> connectionStringManager, ILog log)
         {
-            _tableStorage = AzureTableStorage<AddressEntity>.Create(connectionStringManager, "ZcashAddresses", log);
+            _tableStorage = AzureTableStorage<AddressEntity>.Create(connectionStringManager, "ZcashObservableAddresses", log);
         }
 
         public async Task CreateAsync(ObservationCategory category, string address)
