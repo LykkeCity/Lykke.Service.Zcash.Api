@@ -15,7 +15,9 @@ using Lykke.Service.Zcash.Api.PeriodicalHandlers;
 using Lykke.Service.Zcash.Api.Services;
 using Lykke.SettingsReader;
 using Microsoft.Extensions.DependencyInjection;
+using NBitcoin;
 using NBitcoin.RPC;
+using NBitcoin.Zcash;
 
 namespace Lykke.Service.Zcash.Api.Modules
 {
@@ -72,8 +74,15 @@ namespace Lykke.Service.Zcash.Api.Modules
                 .As<ISettingsRepository>()
                 .WithParameter(TypedParameter.From(_settings.Nested(s => s.Db.DataConnString)));
 
-            builder.RegisterInstance(new RPCClient(_settings.CurrentValue.RpcAuthenticationString, _settings.CurrentValue.RpcUrl, NBitcoin.Zcash.ZcashNetworks.Testnet))
-                .AsSelf();
+            ZcashNetworks.Register();
+
+            builder.RegisterInstance(Network.GetNetwork(_settings.CurrentValue.NetworkType))
+                .As<Network>();
+
+            builder.RegisterType<RPCClient>()
+                .AsSelf()
+                .WithParameter("authenticationString", _settings.CurrentValue.RpcAuthenticationString)
+                .WithParameter("hostOrUri", _settings.CurrentValue.RpcUrl);
 
             builder.RegisterType<BlockchainService>()
                 .As<IBlockchainService>()

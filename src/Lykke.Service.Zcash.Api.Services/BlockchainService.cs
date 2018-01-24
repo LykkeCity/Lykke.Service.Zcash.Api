@@ -31,11 +31,6 @@ namespace Lykke.Service.Zcash.Api.Services
         private readonly ISettingsRepository _settingsRepository;
         private readonly ZcashApiSettings _settings;
 
-        static BlockchainService()
-        {
-            ZcashNetworks.Register();
-        }
-
         public BlockchainService(
             ILog log,
             RPCClient rpcClient,
