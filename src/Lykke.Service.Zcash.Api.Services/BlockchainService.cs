@@ -214,20 +214,19 @@ namespace Lykke.Service.Zcash.Api.Services
         public async Task<(string continuation, IEnumerable<AddressBalance> items)> GetBalancesAsync(string continuation = null, int take = 100)
         {
             var settings = await LoadStoredSettingsAsync();
-
+            var balances = new AddressBalance[0];
             var addressQuery = await _addressRepository.GetByCategoryAsync(ObservationCategory.Balance, continuation, take);
 
-            var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent,
-                settings.ConfirmationLevel, int.MaxValue, addressQuery.items.Select(x => x.Address).ToArray());
+            if (addressQuery.items.Any())
+            {
+                var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent,
+                    settings.ConfirmationLevel, int.MaxValue, addressQuery.items.Select(x => x.Address).ToArray());
 
-            var balances = utxo.GroupBy(x => x.Address)
-                .Select(g => new AddressBalance
-                {
-                    Address = g.Key,
-                    Balance = g.Sum(x => x.Amount),
-                    AssetId = Asset.Zec.Id
-                })
-                .ToList();
+                balances = utxo
+                    .GroupBy(x => x.Address)
+                    .Select(g => new AddressBalance(g.Key, Asset.Zec.Id, g.Sum(x => x.Amount)))
+                    .ToArray();
+            }
 
             return (addressQuery.continuation, balances);
         }

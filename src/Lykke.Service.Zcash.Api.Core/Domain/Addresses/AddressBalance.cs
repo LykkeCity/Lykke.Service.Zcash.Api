@@ -7,8 +7,10 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Addresses
 {
     public class AddressBalance
     {
-        public string Address { get; set; }
-        public string AssetId { get; set; }
-        public decimal Balance { get; set; }
+        public AddressBalance(string address, string assetId, decimal balance) => (Address, AssetId, Balance) = (address, assetId, balance);
+
+        public string Address { get; }
+        public string AssetId { get; }
+        public decimal Balance { get; }
     }
 }
