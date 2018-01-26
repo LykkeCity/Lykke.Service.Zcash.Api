@@ -15,6 +15,7 @@ using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
 using Lykke.Service.Zcash.Api.Services.Models;
 using NBitcoin;
 using NBitcoin.JsonConverters;
+using NBitcoin.Policy;
 using NBitcoin.RPC;
 using NBitcoin.Zcash;
 using Newtonsoft.Json;
@@ -63,66 +64,81 @@ namespace Lykke.Service.Zcash.Api.Services
             }
         }
 
-        public async Task<IOperation> BuildAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees)
+        public void EnsureSigned(Transaction transaction, ICoin[] coins)
+        {
+            // check transaction sign only (due to differences between BTC and ZEC fee calculation
+            if (!new TransactionBuilder()
+                .SetTransactionPolicy(new StandardTransactionPolicy { CheckFee = false })
+                .Verify(transaction, out var errors))
+            {
+                throw new InvalidOperationException(errors.ToStringViaSeparator(Environment.NewLine));
+            }
+        }
+
+        public async Task<IOperation> BuildAsync(Guid operationId, OperationType type, (BitcoinAddress from, BitcoinAddress to, Money amount)[] items, Asset asset, bool subtractFee)
         {
             var settings = await LoadStoredSettingsAsync();
-
+            var itemGroups = items.GroupBy(x => x.from.ToString());
             var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent, 
-                settings.ConfirmationLevel, int.MaxValue, new[] { from.ToString() });
+                settings.ConfirmationLevel, int.MaxValue, itemGroups.Select(g => g.Key).ToArray());
+            var transactionBuilder = new TransactionBuilder();
 
-            utxo = utxo
-                .OrderByDescending(uc => uc.Confirmations)
-                .ThenBy(uc => uc.TxId)
-                .ThenBy(uc => uc.Vout)
-                .ToArray();
-
-            if (utxo.Any())
+            foreach (var group in itemGroups)
             {
-                var totalIn = Money.Zero;
-                var builder = new TransactionBuilder().Send(to, amount).SetChange(from);
+                transactionBuilder.Then(group.Key)
+                    .AddCoins(utxo.Where(x => x.Address == group.Key).Select(x => x.AsCoin()))
+                    .SetChange(group.First().from);
 
-                if (subtractFees)
+                foreach (var opItem in group)
                 {
-                    builder.SubtractFees();
-                }
-
-                foreach (var item in utxo)
-                {
-                    builder.AddCoins(item.AsCoin());
-
-                    totalIn += item.Money;
-
-                    var fee = CalcFee(builder, settings);
-                    var totalOut = subtractFees
-                        ? amount - fee
-                        : amount + fee;
-
-                    if (totalIn >= totalOut)
-                    {
-                        var tx = builder.SendFees(fee).BuildTransaction(sign: false);
-                        var signContext = Serializer.ToString((tx, builder.FindSpentCoins(tx)));
-
-                        return await _operationRepository.CreateAsync(operationId,
-                            from.ToString(), to.ToString(), asset.Id, amount.ToUnit(asset.Unit), fee.ToUnit(asset.Unit), signContext);
-                    }
+                    transactionBuilder.Send(opItem.to, opItem.amount);
                 }
             }
 
-            throw new InvalidOperationException("Insufficient funds");
-        }
+            var fee = CalcFee(transactionBuilder, settings);
 
-        public async Task BroadcastAsync(IOperation operation, string transaction)
-        {
+            transactionBuilder.SendFeesSplit(fee);
+
+            if (subtractFee)
+            {
+                transactionBuilder.SubtractFees();
+            }
+
+            Transaction tx = null;
+
             try
             {
-                var transactionHash = await SendRpcAsync<string>(RPCOperations.sendrawtransaction, transaction);
+                tx = transactionBuilder.BuildTransaction(sign: false);
+            }
+            catch (NotEnoughFundsException)
+            {
+                throw;
+            }
 
-                await _operationRepository.UpdateAsync(operation.OperationId, signedTransaction: transaction,
+            var signContext = Serializer.ToString((tx, transactionBuilder.FindSpentCoins(tx)));
+
+            return await _operationRepository.CreateAsync(operationId, type,
+                items.Select(x => (x.from.ToString(), x.to.ToString(), x.amount.ToUnit(asset.Unit))).ToArray(),
+                fee.ToUnit(asset.Unit),
+                subtractFee,
+                asset.Id,
+                signContext);
+        }
+
+        public async Task BroadcastAsync(Guid operationId, Transaction transaction)
+        {
+            var hex = transaction.ToHex();
+
+            try
+            {
+                var transactionHash = await SendRpcAsync<string>(RPCOperations.sendrawtransaction, hex);
+
+                await _operationRepository.UpdateAsync(operationId, signedTransaction: hex,
                     sentUtc: DateTime.UtcNow, hash: transactionHash);
             }
             catch (RPCException ex)
             {
-                await _operationRepository.UpdateAsync(operation.OperationId, signedTransaction: transaction,
+                await _operationRepository.UpdateAsync(operationId, signedTransaction: hex,
                     failedUtc: DateTime.UtcNow, error: ex.ToString());
             }
         }

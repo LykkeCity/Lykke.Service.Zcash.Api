@@ -8,6 +8,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
     {
         Guid OperationId { get; }
         OperationState State { get; }
+        OperationType Type { get; }
         DateTime BuiltUtc { get; }
         DateTime? SentUtc { get; }
         DateTime? CompletedUtc { get; }
@@ -20,6 +21,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
         string AssetId { get; }
         decimal Amount { get; }
         decimal Fee { get; }
+        bool? SubtractFee { get; }
 
         IOperationItem[] Items { get; }
     }

@@ -8,7 +8,6 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
     {
         string FromAddress { get; }
         string ToAddress { get; }
-        string AssetId { get; }
         decimal Amount { get; }
     }
 }

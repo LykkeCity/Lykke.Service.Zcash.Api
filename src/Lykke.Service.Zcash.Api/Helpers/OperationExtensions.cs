@@ -6,9 +6,38 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 {
     public static class OperationExtensions
     {
-        public static BroadcastedTransactionResponse ToBroadcastedResponse(this IOperation self)
+        public static BroadcastedSingleTransactionResponse ToSingleResponse(this IOperation self)
         {
-            return new BroadcastedTransactionResponse
+            return new BroadcastedSingleTransactionResponse
+            {
+                Amount = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
+                Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
+                Error = self.Error,
+                Hash = self.Hash,
+                OperationId = self.OperationId,
+                State = self.State.ToBroadcastedState(),
+                Timestamp = (self.SentUtc ?? self.CompletedUtc ?? self.FailedUtc).Value,
+                
+            };
+        }
+
+        public static BroadcastedTransactionWithManyInputsResponse ToManyInputsResponse(this IOperation self)
+        {
+            return new BroadcastedTransactionWithManyInputsResponse
+            {
+                Amount = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
+                Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
+                Error = self.Error,
+                Hash = self.Hash,
+                OperationId = self.OperationId,
+                State = self.State.ToBroadcastedState(),
+                Timestamp = (self.SentUtc ?? self.CompletedUtc ?? self.FailedUtc).Value
+            };
+        }
+
+        public static BroadcastedTransactionWithManyOutputsResponse ToManyOutputsResponse(this IOperation self)
+        {
+            return new BroadcastedTransactionWithManyOutputsResponse
             {
                 Amount = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
                 Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),

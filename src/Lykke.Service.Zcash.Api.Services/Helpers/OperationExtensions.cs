@@ -18,7 +18,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
                         {
                             Category = ObservationCategory.From,
                             Amount = item.Amount,
-                            AssetId = item.AssetId,
+                            AssetId = self.AssetId,
                             FromAddress = item.FromAddress,
                             ToAddress = item.ToAddress
                         },
@@ -26,7 +26,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
                         {
                             Category = ObservationCategory.To,
                             Amount = item.Amount,
-                            AssetId = item.AssetId,
+                            AssetId = self.AssetId,
                             FromAddress = item.FromAddress,
                             ToAddress = item.ToAddress
                         },

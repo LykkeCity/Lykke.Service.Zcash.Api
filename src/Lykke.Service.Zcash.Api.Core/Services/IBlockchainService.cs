@@ -15,14 +15,14 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// Builds transparent Zcash transaction
         /// </summary>
         /// <param name="operationId">Operation identifier</param>
-        /// <param name="from">Sender's t-address</param>
+        /// <param name="type">Sender's t-address</param>
         /// <param name="to">Receiver's t-address</param>
         /// <param name="amount">Amount of money to send</param>
         /// <param name="subtractFees">
         /// If true then fees will be subtracted from <paramref name="amount"/>, otherwise fees will be added to <paramref name="amount"/>
         /// </param>
         /// <returns>Observable transaction</returns>
-        Task<IOperation> BuildAsync(Guid operationId, BitcoinAddress from, BitcoinAddress to, Money amount, Asset asset, bool subtractFees);
+        Task<IOperation> BuildAsync(Guid operationId, OperationType type, (BitcoinAddress from, BitcoinAddress to, Money amount)[] items, Asset asset, bool subtractFees);
 
         /// <summary>
         /// Sends transaprent transaction to the Zcash blockchain
@@ -30,7 +30,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// <param name="tx">Observable transaction</param>
         /// <param name="transaction">Signed transaction in HEX format</param>
         /// <returns></returns>
-        Task BroadcastAsync(IOperation tx, string transaction);
+        Task BroadcastAsync(Guid operationId, Transaction transaction);
 
         /// <summary>
         /// Returns observable transaction by operation ID, or null if transaction not found.
@@ -92,5 +92,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         /// <param name="bitcoinAddress">Corresponding address representation</param>
         /// <returns>True if address is valid, otherwise false</returns>
         bool ValidateAddress(string address, out BitcoinAddress bitcoinAddress);
+
+        void EnsureSigned(Transaction transaction, ICoin[] coins);
     }
 }

@@ -31,38 +31,36 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
             _indexStorage = AzureTableStorage<IndexEntity>.Create(connectionStringManager, "ZcashOperationIndex", log);
         }
 
-        public async Task<IOperation> CreateAsync(Guid operationId, 
-            string fromAddress, string toAddress, string assetId, decimal amount, decimal fee, string signContext)
+        public async Task<IOperation> CreateAsync(Guid operationId, OperationType type, (string fromAddress, string toAddress, decimal amount)[] items,
+            decimal fee, bool subtractFee, string assetId, string signContext)
         {
-            var operationItemEntity = new OperationItemEntity()
+            var operationItemEntities = items.Select(item => new OperationItemEntity()
             {
                 PartitionKey = GetOperationItemPartitionKey(operationId),
                 RowKey = GetOperationItemRowKey(),
-                Amount = amount,
+                Amount = item.amount,
                 AssetId = assetId,
-                FromAddress = fromAddress,
-                ToAddress = toAddress
-            };
+                FromAddress = item.fromAddress,
+                ToAddress = item.toAddress
+            });
 
             var operationEntity = new OperationEntity()
             {
                 PartitionKey = GetOperationPartitionKey(operationId),
                 RowKey = GetOperationRowKey(),
-                Amount = amount,
+                Amount = items.Sum(item => item.amount),
                 Fee = fee,
+                s
                 AssetId = assetId,
                 SignContext = signContext,
                 State = OperationState.Built,
                 BuiltUtc = DateTime.UtcNow,
-                Items = new IOperationItem[]
-                {
-                    operationItemEntity
-                }
+                Items = operationItemEntities.ToArray()
             };
 
             await _operationStorage.InsertOrReplaceAsync(operationEntity);
 
-            await _operationItemStorage.InsertOrReplaceAsync(operationItemEntity);
+            await _operationItemStorage.InsertOrReplaceAsync(operationItemEntities);
 
             return operationEntity;
         }

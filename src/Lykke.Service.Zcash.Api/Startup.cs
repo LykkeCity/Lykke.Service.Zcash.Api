@@ -90,7 +90,7 @@ namespace Lykke.Service.Zcash.Api
                     app.UseDeveloperExceptionPage();
                 }
 
-                app.UseLykkeMiddleware("Zcash.Api", ex => new { Message = ex.ToString() });
+                app.UseLykkeMiddleware("Zcash.Api", ex => new { Message = ex.ToString() }, logClientErrors: true);
 
                 app.UseMvc();
                 app.UseSwagger(c =>
