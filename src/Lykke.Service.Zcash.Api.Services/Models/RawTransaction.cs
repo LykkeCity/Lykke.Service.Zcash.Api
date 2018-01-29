@@ -10,6 +10,9 @@ namespace Lykke.Service.Zcash.Api.Services.Models
         public string TxId { get; set; }
         public Input[] Vin { get; set; }
         public Output[] Vout { get; set; }
+        public string BlockHash { get; set; }
+        public uint BlockTime { get; set; }
+        public long Confirmations { get; set; }
 
         public RawTransactionAction[] GetActions()
         {

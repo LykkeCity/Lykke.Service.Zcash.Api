@@ -75,7 +75,7 @@ namespace Lykke.Service.Zcash.Api.Services
             }
         }
 
-        public async Task<IOperation> BuildAsync(Guid operationId, OperationType type, (BitcoinAddress from, BitcoinAddress to, Money amount)[] items, Asset asset, bool subtractFee)
+        public async Task<string> BuildAsync(Guid operationId, OperationType type, (BitcoinAddress from, BitcoinAddress to, Money amount)[] items, Asset asset, bool subtractFee)
         {
             var settings = await LoadStoredSettingsAsync();
             var itemGroups = items.GroupBy(x => x.from.ToString());
@@ -115,42 +115,30 @@ namespace Lykke.Service.Zcash.Api.Services
                 throw;
             }
 
-            var signContext = Serializer.ToString((tx, transactionBuilder.FindSpentCoins(tx)));
-
-            return await _operationRepository.CreateAsync(operationId, type,
+            await _operationRepository.UpsertAsync(operationId, type,
                 items.Select(x => (x.from.ToString(), x.to.ToString(), x.amount.ToUnit(asset.Unit))).ToArray(),
                 fee.ToUnit(asset.Unit),
                 subtractFee,
-                asset.Id,
-                signContext);
+                asset.Id);
+
+            return Serializer.ToString((tx, transactionBuilder.FindSpentCoins(tx)));
         }
 
         public async Task BroadcastAsync(Guid operationId, Transaction transaction)
         {
-            var hex = transaction.ToHex();
+            var rpc = await SendRpcAsync(RPCOperations.sendrawtransaction, transaction.ToHex());
 
-            try
-            {
-                var transactionHash = await SendRpcAsync<string>(RPCOperations.sendrawtransaction, hex);
-
-                await _operationRepository.UpdateAsync(operationId, signedTransaction: hex,
-                    sentUtc: DateTime.UtcNow, hash: transactionHash);
-            }
-            catch (RPCException ex)
-            {
-                await _operationRepository.UpdateAsync(operationId, signedTransaction: hex,
-                    failedUtc: DateTime.UtcNow, error: ex.ToString());
-            }
+            await _operationRepository.UpdateAsync(operationId, sentUtc: DateTime.UtcNow, hash: rpc.ResultString);
         }
 
-        public async Task<IOperation> GetOperationAsync(Guid operationId)
+        public async Task<IOperation> GetOperationAsync(Guid operationId, bool loadItems = true)
         {
-            return await _operationRepository.GetAsync(operationId);
+            return await _operationRepository.GetAsync(operationId, loadItems);
         }
 
         public async Task<bool> TryDeleteOperationAsync(Guid operationId)
         {
-            var operation = await _operationRepository.GetAsync(operationId);
+            var operation = await _operationRepository.GetAsync(operationId, false);
             if (operation.State != OperationState.Deleted)
             {
                 await _operationRepository.UpdateAsync(operationId, deletedUtc: DateTime.UtcNow);
@@ -230,18 +218,28 @@ namespace Lykke.Service.Zcash.Api.Services
         public async Task<(string continuation, IEnumerable<AddressBalance> items)> GetBalancesAsync(string continuation = null, int take = 100)
         {
             var settings = await LoadStoredSettingsAsync();
-            var balances = new AddressBalance[0];
+            var balances = new List<AddressBalance>();
             var addressQuery = await _addressRepository.GetByCategoryAsync(ObservationCategory.Balance, continuation, take);
 
             if (addressQuery.items.Any())
             {
                 var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent,
-                    settings.ConfirmationLevel, int.MaxValue, addressQuery.items.Select(x => x.Address).ToArray());
+                    settings.ConfirmationLevel, int.MaxValue, addressQuery.items.Select(x => x.Address).ToArray());                    
 
-                balances = utxo
-                    .GroupBy(x => x.Address)
-                    .Select(g => new AddressBalance(g.Key, Asset.Zec.Id, g.Sum(x => x.Amount)))
-                    .ToArray();
+                foreach (var group in utxo.GroupBy(x => x.Address))
+                {
+                    var lastTx = await GetRawTransactionAsync(
+                        group.OrderByDescending(x => x.Confirmations).First().TxId, 
+                        restoreInputs: false);
+
+                    balances.Add(new AddressBalance
+                    {
+                        Address = group.Key,
+                        Balance = group.Sum(x => x.Amount),
+                        Asset = Asset.Zec,
+                        BlockTime = lastTx.BlockTime
+                    });
+                }
             }
 
             return (addressQuery.continuation, balances);
@@ -290,22 +288,6 @@ namespace Lykke.Service.Zcash.Api.Services
             return (await _addressRepository.GetAsync(category, address)) != null;
         }
 
-        public async Task<string[]> GetSendersAsync(string transactionHash)
-        {
-            var result = new List<string>();
-            var curr = await GetRawTransactionAsync(transactionHash);
-
-            foreach (var vin in curr.Vin)
-            {
-                var prev = await GetRawTransactionAsync(vin.TxId);
-                var vout = prev.Vout.OrderBy(x => x.N).Skip((int)vin.Vout).First();
-
-                result.AddRange(vout.ScriptPubKey.Addresses);
-            }
-
-            return result.Distinct().ToArray();
-        }
-
         public async Task<ISettings> LoadStoredSettingsAsync()
         {
             return (await _settingsRepository.GetAsync()) ?? _settings;
@@ -318,7 +300,7 @@ namespace Lykke.Service.Zcash.Api.Services
             await _settingsRepository.UpsertAsync(_settings);
         }
 
-        public async Task<RawTransaction> GetRawTransactionAsync(string transactionHash)
+        public async Task<RawTransaction> GetRawTransactionAsync(string transactionHash, bool restoreInputs = true)
         {
             async Task<RawTransaction> InternalGet(string hash)
             {
@@ -326,7 +308,7 @@ namespace Lykke.Service.Zcash.Api.Services
                 if (tx == null)
                 {
                     throw new InvalidOperationException(
-                        $"Transaction {hash} not found. Consider restarting zcashd daemon with txindex=1 option.");
+                        $"Transaction {hash} not found. Consider restarting zcashd daemon using txindex=1 option.");
                 }
 
                 return tx;
@@ -334,13 +316,18 @@ namespace Lykke.Service.Zcash.Api.Services
 
             var curr = await InternalGet(transactionHash);
 
-            foreach (var vin in curr.Vin)
+            if (restoreInputs)
             {
-                var prev = await InternalGet(vin.TxId);
-                var vout = prev.Vout.OrderBy(x => x.N).Skip((int)vin.Vout).First();
+                // TODO: use batch instead of subsequent queries
 
-                vin.Addresses = vout.ScriptPubKey.Addresses;
-                vin.Value = vout.Value;
+                foreach (var vin in curr.Vin)
+                {
+                    var prev = await InternalGet(vin.TxId);
+                    var vout = prev.Vout.OrderBy(x => x.N).Skip((int)vin.Vout).First();
+
+                    vin.Addresses = vout.ScriptPubKey.Addresses;
+                    vin.Value = vout.Value;
+                }
             }
 
             return curr;

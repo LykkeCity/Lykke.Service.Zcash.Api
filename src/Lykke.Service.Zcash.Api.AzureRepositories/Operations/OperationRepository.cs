@@ -31,15 +31,14 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
             _indexStorage = AzureTableStorage<IndexEntity>.Create(connectionStringManager, "ZcashOperationIndex", log);
         }
 
-        public async Task<IOperation> CreateAsync(Guid operationId, OperationType type, (string fromAddress, string toAddress, decimal amount)[] items,
-            decimal fee, bool subtractFee, string assetId, string signContext)
+        public async Task<IOperation> UpsertAsync(Guid operationId, OperationType type, (string fromAddress, string toAddress, decimal amount)[] items,
+            decimal fee, bool subtractFee, string assetId)
         {
             var operationItemEntities = items.Select(item => new OperationItemEntity()
             {
                 PartitionKey = GetOperationItemPartitionKey(operationId),
                 RowKey = GetOperationItemRowKey(),
                 Amount = item.amount,
-                AssetId = assetId,
                 FromAddress = item.fromAddress,
                 ToAddress = item.toAddress
             });
@@ -50,9 +49,8 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                 RowKey = GetOperationRowKey(),
                 Amount = items.Sum(item => item.amount),
                 Fee = fee,
-                s
+                SubtractFee = subtractFee,
                 AssetId = assetId,
-                SignContext = signContext,
                 State = OperationState.Built,
                 BuiltUtc = DateTime.UtcNow,
                 Items = operationItemEntities.ToArray()
@@ -67,7 +65,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
 
         public async Task<IOperation> UpdateAsync(Guid operationId,
             DateTime? sentUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, DateTime? deletedUtc = null,
-            string signedTransaction = null, string hash = null, string error = null)
+            string hash = null, string error = null)
         {
             var partitionKey = GetOperationPartitionKey(operationId);
             var rowKey = GetOperationRowKey();
@@ -83,7 +81,6 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                 e.CompletedUtc = completedUtc ?? e.CompletedUtc;
                 e.FailedUtc = failedUtc ?? e.FailedUtc;
                 e.DeletedUtc = deletedUtc ?? e.DeletedUtc;
-                e.SignedTransaction = signedTransaction ?? e.SignedTransaction;
                 e.Hash = hash ?? e.Hash;
                 e.Error = error ?? e.Error;
                 return e;

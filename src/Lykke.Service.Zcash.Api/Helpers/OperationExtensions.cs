@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq;
+using Common;
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
 
@@ -16,8 +18,8 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
                 Hash = self.Hash,
                 OperationId = self.OperationId,
                 State = self.State.ToBroadcastedState(),
-                Timestamp = (self.SentUtc ?? self.CompletedUtc ?? self.FailedUtc).Value,
-                
+                Timestamp = self.TimestampUtc,
+                Block = Convert.ToInt64(self.TimestampUtc.ToUnixTime()),
             };
         }
 
@@ -25,13 +27,16 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
         {
             return new BroadcastedTransactionWithManyInputsResponse
             {
-                Amount = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
-                Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
                 Error = self.Error,
                 Hash = self.Hash,
                 OperationId = self.OperationId,
                 State = self.State.ToBroadcastedState(),
-                Timestamp = (self.SentUtc ?? self.CompletedUtc ?? self.FailedUtc).Value
+                Timestamp = self.TimestampUtc,
+                Block = Convert.ToInt64(self.TimestampUtc.ToUnixTime()),
+                Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
+                Inputs = self.Items
+                    .Select(x => new TransactionInputContract { Amount = Conversions.CoinsToContract(x.Amount, Constants.Assets[self.AssetId].DecimalPlaces), FromAddress = x.FromAddress })
+                    .ToArray()
             };
         }
 
@@ -39,13 +44,16 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
         {
             return new BroadcastedTransactionWithManyOutputsResponse
             {
-                Amount = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
-                Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
                 Error = self.Error,
                 Hash = self.Hash,
                 OperationId = self.OperationId,
                 State = self.State.ToBroadcastedState(),
-                Timestamp = (self.SentUtc ?? self.CompletedUtc ?? self.FailedUtc).Value
+                Timestamp = (self.SentUtc ?? self.CompletedUtc ?? self.FailedUtc).Value,
+                Block = Convert.ToInt64(self.TimestampUtc.ToUnixTime()),
+                Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
+                Outputs = self.Items
+                    .Select(x => new TransactionOutputContract { Amount = Conversions.CoinsToContract(x.Amount, Constants.Assets[self.AssetId].DecimalPlaces), ToAddress = x.ToAddress })
+                    .ToArray()
             };
         }
 

@@ -28,34 +28,32 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [NonAction]
         public async Task<IActionResult> Build(Guid operationId, OperationType type, (BitcoinAddress from, BitcoinAddress to, Money amount)[] items, Asset asset, bool subtractFees)
         {
-            var operation = await _blockchainService.GetOperationAsync(operationId);
+            var operation = await _blockchainService.GetOperationAsync(operationId, loadItems: false);
 
-            if (operation != null &&
-                operation.State != OperationState.Built)
+            if (operation != null && operation.State != OperationState.Built)
             {
                 var state = Enum.GetName(typeof(OperationState), operation.State).ToLower();
 
                 return StatusCode(StatusCodes.Status409Conflict, ErrorResponse.Create($"Operation is already {state}"));
             }
 
-            if (operation == null)
+            var signContext = string.Empty;
+
+            try
             {
-                try
+                signContext = await _blockchainService.BuildAsync(operationId, OperationType.SISO, items, asset, subtractFees);
+            }
+            catch (NotEnoughFundsException)
+            {
+                return Ok(new BuildTransactionResponse
                 {
-                    operation = await _blockchainService.BuildAsync(operationId, OperationType.SISO, items, asset, subtractFees);
-                }
-                catch (NotEnoughFundsException)
-                {
-                    return Ok(new BuildTransactionResponse
-                    {
-                        ErrorCode = TransactionExecutionError.NotEnoughtBalance
-                    });
-                }
+                    ErrorCode = TransactionExecutionError.NotEnoughtBalance
+                });
             }
 
             return Ok(new BuildTransactionResponse
             {
-                TransactionContext = operation.SignContext.ToBase64()
+                TransactionContext = signContext.ToBase64()
             });
         }
 
@@ -126,7 +124,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
 
             _blockchainService.EnsureSigned(transaction, coins);
 
-            var operation = await _blockchainService.GetOperationAsync(request.OperationId);
+            var operation = await _blockchainService.GetOperationAsync(request.OperationId, false);
 
             if (operation == null)
             {
@@ -134,7 +132,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
                     ErrorResponse.Create("Transaction must be built beforehand by Zcash API to be successfully broadcasted then"));
             }
 
-            if (operation.State == OperationState.Sent && operation.SignedTransaction == transaction.ToHex())
+            if (operation.State == OperationState.Sent)
             {
                 return StatusCode(StatusCodes.Status409Conflict,
                     ErrorResponse.Create("Transaction already sent earlier"));

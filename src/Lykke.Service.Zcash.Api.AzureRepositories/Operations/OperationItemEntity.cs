@@ -20,7 +20,6 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
 
         public string FromAddress { get; set; }
         public string ToAddress { get; set; }
-        public string AssetId { get; set; }
         public decimal Amount { get; set; }
     }
 }
