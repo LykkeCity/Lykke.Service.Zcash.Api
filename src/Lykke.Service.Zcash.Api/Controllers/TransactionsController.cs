@@ -26,7 +26,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         }
 
         [NonAction]
-        public async Task<IActionResult> Build(Guid operationId, OperationType type, (BitcoinAddress from, BitcoinAddress to, Money amount)[] items, Asset asset, bool subtractFees)
+        public async Task<IActionResult> Build(Guid operationId, OperationType type, Asset asset, bool subtractFees, params (BitcoinAddress from, BitcoinAddress to, Money amount)[] items)
         {
             var operation = await _blockchainService.GetOperationAsync(operationId, loadItems: false);
 
@@ -41,7 +41,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
 
             try
             {
-                signContext = await _blockchainService.BuildAsync(operationId, OperationType.SISO, items, asset, subtractFees);
+                signContext = await _blockchainService.BuildAsync(operationId, OperationType.SISO, asset, subtractFees, items);
             }
             catch (NotEnoughFundsException)
             {
@@ -69,7 +69,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return BadRequest(ErrorResponseFactory.Create(ModelState));
             }
 
-            return await Build(request.OperationId, OperationType.SISO, items, asset, request.IncludeFee);
+            return await Build(request.OperationId, OperationType.SISO, asset, request.IncludeFee, items);
         }
 
         [HttpPost("many-inputs")]
@@ -84,7 +84,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return BadRequest(ErrorResponseFactory.Create(ModelState));
             }
 
-            return await Build(request.OperationId, OperationType.MISO, items, asset, true);
+            return await Build(request.OperationId, OperationType.MISO, asset, true, items);
         }
 
         [HttpPost("many-outputs")]
@@ -99,7 +99,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return BadRequest(ErrorResponseFactory.Create(ModelState));
             }
 
-            return await Build(request.OperationId, OperationType.SIMO, items, asset, false);
+            return await Build(request.OperationId, OperationType.SIMO, asset, false, items);
         }
 
         [HttpPut]

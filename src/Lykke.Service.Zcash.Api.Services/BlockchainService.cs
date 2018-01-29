@@ -25,7 +25,7 @@ namespace Lykke.Service.Zcash.Api.Services
     public class BlockchainService : IBlockchainService
     {
         private readonly ILog _log;
-        private readonly RPCClient _rpcClient;
+        private readonly IBlockchainReader _blockchainReader;
         private readonly IAddressRepository _addressRepository;
         private readonly IOperationRepository _operationRepository;
         private readonly IHistoryRepository _historyRepository;
@@ -34,7 +34,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public BlockchainService(
             ILog log,
-            RPCClient rpcClient,
+            IBlockchainReader blockchainReader,
             IAddressRepository addressRepository,
             IOperationRepository operationRepository,
             IHistoryRepository historyRepository,
@@ -42,7 +42,7 @@ namespace Lykke.Service.Zcash.Api.Services
             ZcashApiSettings settings)
         {
             _log = log;
-            _rpcClient = rpcClient;
+            _blockchainReader = blockchainReader;
             _addressRepository = addressRepository;
             _operationRepository = operationRepository;
             _historyRepository = historyRepository;
@@ -75,44 +75,43 @@ namespace Lykke.Service.Zcash.Api.Services
             }
         }
 
-        public async Task<string> BuildAsync(Guid operationId, OperationType type, (BitcoinAddress from, BitcoinAddress to, Money amount)[] items, Asset asset, bool subtractFee)
+        public async Task<string> BuildAsync(Guid operationId, OperationType type, Asset asset, bool subtractFee, (BitcoinAddress from, BitcoinAddress to, Money amount)[] items)
         {
             var settings = await LoadStoredSettingsAsync();
-            var itemGroups = items.GroupBy(x => x.from.ToString());
-            var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent, 
-                settings.ConfirmationLevel, int.MaxValue, itemGroups.Select(g => g.Key).ToArray());
+            var itemGroups = items.GroupBy(x => x.from).ToDictionary(g => g.Key);
+            var utxo = await _blockchainReader.ListUnspentAsync(settings.ConfirmationLevel, itemGroups.Keys.Select(k => k.ToString()).ToArray());
             var transactionBuilder = new TransactionBuilder();
 
-            foreach (var group in itemGroups)
+            foreach (var from in itemGroups.Keys)
             {
-                transactionBuilder.Then(group.Key)
-                    .AddCoins(utxo.Where(x => x.Address == group.Key).Select(x => x.AsCoin()))
-                    .SetChange(group.First().from);
+                transactionBuilder
+                    .Then(from.ToString())
+                    .AddCoins(utxo.Where(x => x.Address == from.ToString()).Select(x => x.AsCoin()))
+                    .SetChange(from);
 
-                foreach (var opItem in group)
+                foreach (var item in itemGroups[from])
                 {
-                    transactionBuilder.Send(opItem.to, opItem.amount);
+                    transactionBuilder.Send(item.to, item.amount);
                 }
             }
 
             var fee = CalcFee(transactionBuilder, settings);
 
-            transactionBuilder.SendFeesSplit(fee);
+            Transaction tx = null;
 
             if (subtractFee)
             {
-                transactionBuilder.SubtractFees();
-            }
-
-            Transaction tx = null;
-
-            try
-            {
                 tx = transactionBuilder.BuildTransaction(sign: false);
+
+                foreach (var vout in tx.Outputs.Except( .Where(vout => vout.ScriptPubKey.GetDestinationAddress())
+                {
+                    vout.Value -= CalcFeeOutput(fee, tx.TotalOut, vout.Value);
+                }
             }
-            catch (NotEnoughFundsException)
+            else
             {
-                throw;
+                transactionBuilder.SendFeesSplit(fee);
+                tx = transactionBuilder.BuildTransaction(sign: false);
             }
 
             await _operationRepository.UpsertAsync(operationId, type,
@@ -126,9 +125,9 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task BroadcastAsync(Guid operationId, Transaction transaction)
         {
-            var rpc = await SendRpcAsync(RPCOperations.sendrawtransaction, transaction.ToHex());
+            var hash = await _blockchainReader.SendRawTransactionAsync(transaction);
 
-            await _operationRepository.UpdateAsync(operationId, sentUtc: DateTime.UtcNow, hash: rpc.ResultString);
+            await _operationRepository.UpdateAsync(operationId, sentUtc: DateTime.UtcNow, hash: hash);
         }
 
         public async Task<IOperation> GetOperationAsync(Guid operationId, bool loadItems = true)
@@ -157,10 +156,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
             var settings = await LoadStoredSettingsAsync();
 
-            var recent = await SendRpcAsync<RecentResult>(RPCOperations.listsinceblock,
-                settings.LastBlockHash, 
-                settings.ConfirmationLevel, 
-                true);
+            var recent = await _blockchainReader.ListSinceBlockAsync(settings.LastBlockHash, settings.ConfirmationLevel);
 
             var recentTransactions = from t in recent.Transactions
                                      where t.Category == receiveCategory || t.Category == sendCategory
@@ -223,8 +219,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
             if (addressQuery.items.Any())
             {
-                var utxo = await SendRpcAsync<Utxo[]>(RPCOperations.listunspent,
-                    settings.ConfirmationLevel, int.MaxValue, addressQuery.items.Select(x => x.Address).ToArray());                    
+                var utxo = await _blockchainReader.ListUnspentAsync(settings.ConfirmationLevel, addressQuery.items.Select(x => x.Address).ToArray());
 
                 foreach (var group in utxo.GroupBy(x => x.Address))
                 {
@@ -247,7 +242,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<bool> TryCreateObservableAddressAsync(ObservationCategory category, string address)
         {
-            var addressInfo = await SendRpcAsync<AddressInfo>(RPCOperations.validateaddress, address);
+            var addressInfo = await _blockchainReader.ValidateAddressAsync(address);
 
             if (!addressInfo.IsValid)
             {
@@ -256,7 +251,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
             if (!addressInfo.IsMine && !addressInfo.IsWatchOnly)
             {
-                await SendRpcAsync(RPCOperations.importaddress, address, string.Empty, false);
+                await _blockchainReader.ImportAddressAsync(address);
             }
 
             var observableAddress = await _addressRepository.GetAsync(category, address);
@@ -304,7 +299,7 @@ namespace Lykke.Service.Zcash.Api.Services
         {
             async Task<RawTransaction> InternalGet(string hash)
             {
-                var tx = await SendRpcAsync<RawTransaction>(RPCOperations.getrawtransaction, hash, 1);
+                var tx = await _blockchainReader.GetRawTransactionAsync(hash);
                 if (tx == null)
                 {
                     throw new InvalidOperationException(
@@ -333,36 +328,6 @@ namespace Lykke.Service.Zcash.Api.Services
             return curr;
         }
 
-        public async Task<T> SendRpcAsync<T>(RPCOperations command, params object[] parameters)
-        {
-            var result = await _rpcClient.SendCommandAsync(command, parameters);
-
-            result.ThrowIfError();
-
-            // NBitcoin can not deserialize shielded tx data,
-            // that's why custom models are used widely instead of built-in NBitcoin commands;
-            // additionaly in case of exception we save context to investigate later:
-
-            try
-            {
-                return result.Result.ToObject<T>();
-            }
-            catch (JsonSerializationException jex)
-            {
-                await _log.WriteErrorAsync(nameof(SendRpcAsync), $"Command: {command}, Response: {result.ResultString}", jex);
-                throw;
-            }
-        }
-
-        public async Task<RPCResponse> SendRpcAsync(RPCOperations command, params object[] parameters)
-        {
-            var result = await _rpcClient.SendCommandAsync(new RPCRequest(command, parameters), false);
-
-            result.ThrowIfError();
-
-            return result;
-        }
-
         public Money CalcFee(TransactionBuilder builder, ISettings settings)
         {
             if (settings.UseDefaultFee)
@@ -377,6 +342,17 @@ namespace Lykke.Service.Zcash.Api.Services
 
                 return Money.Max(Money.Min(fee, max), min);
             }
+        }
+
+        public Money CalcFeeOutput(Money fee, Money totalOutput, Money output)
+        {
+            var unit = Asset.Zec.Unit;
+            var decimalFee = fee.ToUnit(unit);
+            var decimalTotalOutput = totalOutput.ToUnit(unit);
+            var decimalOutput = output.ToUnit(unit);
+            var decimalResult = decimalFee * (decimalOutput / decimalTotalOutput);
+
+            return Money.FromUnit(decimalResult, unit);
         }
     }
 }

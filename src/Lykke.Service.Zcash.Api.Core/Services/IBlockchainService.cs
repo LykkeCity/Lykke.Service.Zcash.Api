@@ -11,7 +11,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 {
     public interface IBlockchainService
     {
-        Task<string> BuildAsync(Guid operationId, OperationType type, (BitcoinAddress from, BitcoinAddress to, Money amount)[] items, Asset asset, bool subtractFees);
+        Task<string> BuildAsync(Guid operationId, OperationType type, Asset asset, bool subtractFees, params (BitcoinAddress from, BitcoinAddress to, Money amount)[] items);
 
         Task BroadcastAsync(Guid operationId, Transaction transaction);
 
