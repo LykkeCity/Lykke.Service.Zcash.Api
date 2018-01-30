@@ -16,9 +16,6 @@ using Lykke.Service.Zcash.Api.Services.Models;
 using NBitcoin;
 using NBitcoin.JsonConverters;
 using NBitcoin.Policy;
-using NBitcoin.RPC;
-using NBitcoin.Zcash;
-using Newtonsoft.Json;
 
 namespace Lykke.Service.Zcash.Api.Services
 {
@@ -78,18 +75,18 @@ namespace Lykke.Service.Zcash.Api.Services
         public async Task<string> BuildAsync(Guid operationId, OperationType type, Asset asset, bool subtractFee, (BitcoinAddress from, BitcoinAddress to, Money amount)[] items)
         {
             var settings = await LoadStoredSettingsAsync();
-            var itemGroups = items.GroupBy(x => x.from).ToDictionary(g => g.Key);
-            var utxo = await _blockchainReader.ListUnspentAsync(settings.ConfirmationLevel, itemGroups.Keys.Select(k => k.ToString()).ToArray());
+            var transactionGroups = items.GroupBy(x => x.from).ToDictionary(g => g.Key);
+            var utxo = await _blockchainReader.ListUnspentAsync(settings.ConfirmationLevel, transactionGroups.Keys.Select(from => from.ToString()).ToArray());
             var transactionBuilder = new TransactionBuilder();
 
-            foreach (var from in itemGroups.Keys)
+            foreach (var from in transactionGroups.Keys)
             {
-                transactionBuilder
-                    .Then(from.ToString())
-                    .AddCoins(utxo.Where(x => x.Address == from.ToString()).Select(x => x.AsCoin()))
-                    .SetChange(from);
+                var coins = utxo.Where(x => x.Address == from.ToString())
+                    .Select(x => x.AsCoin());
 
-                foreach (var item in itemGroups[from])
+                transactionBuilder.Then(from.ToString()).AddCoins(coins).SetChange(from);
+
+                foreach (var item in transactionGroups[from])
                 {
                     transactionBuilder.Send(item.to, item.amount);
                 }
@@ -101,11 +98,17 @@ namespace Lykke.Service.Zcash.Api.Services
 
             if (subtractFee)
             {
+                // TransactionBuilder.SubtractFees() subtracts fee from the first output in the group, which may be a change output,
+                // but we want to subtract fee from operation amount, not change, so calculate fee by hands in this case
+
                 tx = transactionBuilder.BuildTransaction(sign: false);
 
-                foreach (var vout in tx.Outputs.Except( .Where(vout => vout.ScriptPubKey.GetDestinationAddress())
+                var toAddresses = items.Select(x => x.to).ToHashSet();
+                var totalAmount = items.Select(x => x.amount).Sum();
+
+                foreach (var vout in tx.Outputs.Where(x => toAddresses.Any(to => x.IsTo(to))))
                 {
-                    vout.Value -= CalcFeeOutput(fee, tx.TotalOut, vout.Value);
+                    vout.Value -= CalcFeeSplit(fee, totalAmount, vout.Value);
                 }
             }
             else
@@ -116,9 +119,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
             await _operationRepository.UpsertAsync(operationId, type,
                 items.Select(x => (x.from.ToString(), x.to.ToString(), x.amount.ToUnit(asset.Unit))).ToArray(),
-                fee.ToUnit(asset.Unit),
-                subtractFee,
-                asset.Id);
+                fee.ToUnit(asset.Unit), subtractFee, asset.Id);
 
             return Serializer.ToString((tx, transactionBuilder.FindSpentCoins(tx)));
         }
@@ -344,7 +345,7 @@ namespace Lykke.Service.Zcash.Api.Services
             }
         }
 
-        public Money CalcFeeOutput(Money fee, Money totalOutput, Money output)
+        public Money CalcFeeSplit(Money fee, Money totalOutput, Money output)
         {
             var unit = Asset.Zec.Unit;
             var decimalFee = fee.ToUnit(unit);
