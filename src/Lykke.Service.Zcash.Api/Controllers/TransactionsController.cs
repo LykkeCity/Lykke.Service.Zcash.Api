@@ -32,16 +32,15 @@ namespace Lykke.Service.Zcash.Api.Controllers
 
             if (operation != null && operation.State != OperationState.Built)
             {
-                var state = Enum.GetName(typeof(OperationState), operation.State).ToLower();
-
-                return StatusCode(StatusCodes.Status409Conflict, ErrorResponse.Create($"Operation is already {state}"));
+                return StatusCode(StatusCodes.Status409Conflict,
+                    ErrorResponse.Create($"Operation is already {Enum.GetName(typeof(OperationState), operation.State).ToLower()}"));
             }
 
             var signContext = string.Empty;
 
             try
             {
-                signContext = await _blockchainService.BuildAsync(operationId, OperationType.SISO, asset, subtractFees, items);
+                signContext = await _blockchainService.BuildAsync(operationId, OperationType.SingleFromSingleTo, asset, subtractFees, items);
             }
             catch (NotEnoughFundsException)
             {
@@ -69,7 +68,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return BadRequest(ErrorResponseFactory.Create(ModelState));
             }
 
-            return await Build(request.OperationId, OperationType.SISO, asset, request.IncludeFee, items);
+            return await Build(request.OperationId, OperationType.SingleFromSingleTo, asset, request.IncludeFee, items);
         }
 
         [HttpPost("many-inputs")]
@@ -84,7 +83,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return BadRequest(ErrorResponseFactory.Create(ModelState));
             }
 
-            return await Build(request.OperationId, OperationType.MISO, asset, true, items);
+            return await Build(request.OperationId, OperationType.MultiFromSingleTo, asset, true, items);
         }
 
         [HttpPost("many-outputs")]
@@ -99,7 +98,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return BadRequest(ErrorResponseFactory.Create(ModelState));
             }
 
-            return await Build(request.OperationId, OperationType.SIMO, asset, false, items);
+            return await Build(request.OperationId, OperationType.SingleFromMultiTo, asset, false, items);
         }
 
         [HttpPut]
@@ -129,13 +128,13 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (operation == null)
             {
                 return StatusCode(StatusCodes.Status404NotFound,
-                    ErrorResponse.Create("Transaction must be built beforehand by Zcash API to be successfully broadcasted then"));
+                    ErrorResponse.Create("Transaction must be built beforehand by Zcash API (to be successfully broadcasted then)"));
             }
 
-            if (operation.State == OperationState.Sent)
+            if (operation != null && operation.State != OperationState.Built)
             {
                 return StatusCode(StatusCodes.Status409Conflict,
-                    ErrorResponse.Create("Transaction already sent earlier"));
+                    ErrorResponse.Create($"Operation is already {Enum.GetName(typeof(OperationState), operation.State).ToLower()}"));
             }
 
             await _blockchainService.BroadcastAsync(operation.OperationId, transaction);
@@ -144,21 +143,18 @@ namespace Lykke.Service.Zcash.Api.Controllers
         }
 
         [HttpGet("broadcast/single/{operationId}")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<BroadcastedSingleTransactionResponse> GetSingle([FromRoute]Guid operationId)
         {
             return (await _blockchainService.GetOperationAsync(operationId))?.ToSingleResponse();
         }
 
         [HttpGet("broadcast/many-inputs/{operationId}")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<BroadcastedTransactionWithManyInputsResponse> GetManyInputs([FromRoute]Guid operationId)
         {
             return (await _blockchainService.GetOperationAsync(operationId))?.ToManyInputsResponse();
         }
 
         [HttpGet("broadcast/many-outputs/{operationId}")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<BroadcastedTransactionWithManyOutputsResponse> GetManyOutputs([FromRoute]Guid operationId)
         {
             return (await _blockchainService.GetOperationAsync(operationId))?.ToManyOutputsResponse();

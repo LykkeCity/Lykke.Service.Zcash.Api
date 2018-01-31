@@ -84,6 +84,9 @@ namespace Lykke.Service.Zcash.Api.Modules
                 .WithParameter("authenticationString", _settings.CurrentValue.RpcAuthenticationString)
                 .WithParameter("hostOrUri", _settings.CurrentValue.RpcUrl);
 
+            builder.RegisterType<BlockchainReader>()
+                .As<IBlockchainReader>();
+
             builder.RegisterType<BlockchainService>()
                 .As<IBlockchainService>()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue));

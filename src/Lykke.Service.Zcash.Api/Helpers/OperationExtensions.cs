@@ -10,6 +10,8 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
     {
         public static BroadcastedSingleTransactionResponse ToSingleResponse(this IOperation self)
         {
+            self.EnsureType(OperationType.SingleFromSingleTo);
+
             return new BroadcastedSingleTransactionResponse
             {
                 Amount = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
@@ -25,6 +27,8 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 
         public static BroadcastedTransactionWithManyInputsResponse ToManyInputsResponse(this IOperation self)
         {
+            self.EnsureType(OperationType.MultiFromSingleTo);
+
             return new BroadcastedTransactionWithManyInputsResponse
             {
                 Error = self.Error,
@@ -42,6 +46,8 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 
         public static BroadcastedTransactionWithManyOutputsResponse ToManyOutputsResponse(this IOperation self)
         {
+            self.EnsureType(OperationType.SingleFromMultiTo);
+
             return new BroadcastedTransactionWithManyOutputsResponse
             {
                 Error = self.Error,
@@ -60,6 +66,14 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
         public static BroadcastedTransactionState ToBroadcastedState(this OperationState self)
         {
             return (BroadcastedTransactionState)((int)self + 1);
+        }
+
+        public static void EnsureType(this IOperation self, OperationType expected)
+        {
+            if (self.Type != expected)
+            {
+                throw new InvalidOperationException($"{expected} operation type was expected, {self.Type} operation was fetched");
+            }
         }
     }
 }

@@ -63,8 +63,9 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public void EnsureSigned(Transaction transaction, ICoin[] coins)
         {
-            // check transaction sign only (due to differences between BTC and ZEC fee calculation
+            // check transaction sign only (due to differences between BTC and ZEC fee calculation)
             if (!new TransactionBuilder()
+                .AddCoins(coins)
                 .SetTransactionPolicy(new StandardTransactionPolicy { CheckFee = false })
                 .Verify(transaction, out var errors))
             {
@@ -75,53 +76,117 @@ namespace Lykke.Service.Zcash.Api.Services
         public async Task<string> BuildAsync(Guid operationId, OperationType type, Asset asset, bool subtractFee, (BitcoinAddress from, BitcoinAddress to, Money amount)[] items)
         {
             var settings = await LoadStoredSettingsAsync();
-            var transactionGroups = items.GroupBy(x => x.from).ToDictionary(g => g.Key);
-            var utxo = await _blockchainReader.ListUnspentAsync(settings.ConfirmationLevel, transactionGroups.Keys.Select(from => from.ToString()).ToArray());
-            var transactionBuilder = new TransactionBuilder();
 
-            foreach (var from in transactionGroups.Keys)
+            var inputs = 
+                items.GroupBy(x => x.from)
+                     .Select(g => new { Address = g.Key, Amount = g.Select(x => x.amount).Sum() })
+                     .ToList();
+
+            var outputs = 
+                items.GroupBy(x => x.to)
+                     .Select(g => new { Address = g.Key, Amount = g.Select(x => x.amount).Sum() })
+                     .ToList();
+
+            var utxo = await _blockchainReader.ListUnspentAsync(
+                settings.ConfirmationLevel,
+                inputs.Select(from => from.Address.ToString()).ToArray());
+
+            var unspentOutputs = 
+                inputs.ToDictionary(from => from.Address, from => new Stack<Utxo>(utxo.Where(x => x.Address == from.Address.ToString()).OrderBy(x => x.Confirmations)));
+
+            var spentOutputs = 
+                inputs.ToDictionary(from => from.Address, from => new Stack<Utxo>());
+
+            var oddOutputs = 
+                inputs.ToDictionary(from => from.Address, from => (TxOut)null);
+
+            var tx = new Transaction();
+
+            foreach (var from in inputs)
             {
-                var coins = utxo.Where(x => x.Address == from.ToString())
-                    .Select(x => x.AsCoin());
+                var amount = from.Amount;
 
-                transactionBuilder.Then(from.ToString()).AddCoins(coins).SetChange(from);
-
-                foreach (var item in transactionGroups[from])
+                if (amount > Money.Zero)
                 {
-                    transactionBuilder.Send(item.to, item.amount);
+                    while (amount > Money.Zero && unspentOutputs[from.Address].TryPop(out var vout))
+                    {
+                        tx.AddInput(vout.AsTxIn());
+                        spentOutputs[from.Address].Push(vout);
+                        amount -= vout.Money;
+                    }
+                }
+
+                if (amount > Money.Zero)
+                {
+                    throw new NotEnoughFundsException("Not enough funds", from.Address.ToString(), amount);
+                }
+
+                if (amount < Money.Zero)
+                {
+                    oddOutputs[from.Address] = tx.AddOutput(amount.Abs(), from.Address);
                 }
             }
 
-            var fee = CalcFee(transactionBuilder, settings);
+            foreach (var to in outputs)
+            {
+                tx.AddOutput(to.Amount, to.Address);
+            }
 
-            Transaction tx = null;
+            var fee = CalcFee(tx, settings);
+            var totalAmount = items.Select(x => x.amount).Sum();
 
             if (subtractFee)
             {
-                // TransactionBuilder.SubtractFees() subtracts fee from the first output in the group, which may be a change output,
-                // but we want to subtract fee from operation amount, not change, so calculate fee by hands in this case
-
-                tx = transactionBuilder.BuildTransaction(sign: false);
-
-                var toAddresses = items.Select(x => x.to).ToHashSet();
-                var totalAmount = items.Select(x => x.amount).Sum();
-
-                foreach (var vout in tx.Outputs.Where(x => toAddresses.Any(to => x.IsTo(to))))
+                foreach (var vout in tx.Outputs.Except(oddOutputs.Where(x => x.Value != null).Select(x => x.Value)))
                 {
                     vout.Value -= CalcFeeSplit(fee, totalAmount, vout.Value);
                 }
             }
             else
             {
-                transactionBuilder.SendFeesSplit(fee);
-                tx = transactionBuilder.BuildTransaction(sign: false);
+                foreach (var from in inputs)
+                {
+                    var inputAmount = spentOutputs[from.Address].Select(x => x.Money).Sum();
+                    var operationAndFeeAmount = from.Amount + CalcFeeSplit(fee, totalAmount, from.Amount);
+
+                    if (inputAmount < operationAndFeeAmount)
+                    {
+                        while (inputAmount < operationAndFeeAmount && unspentOutputs[from.Address].TryPop(out var vout))
+                        {
+                            tx.AddInput(vout.AsTxIn());
+                            spentOutputs[from.Address].Push(vout);
+                            inputAmount += vout.Money;
+                        }
+                    }
+
+                    if (inputAmount < operationAndFeeAmount)
+                    {
+                        throw new NotEnoughFundsException("Not enough funds", from.ToString(), operationAndFeeAmount - inputAmount);
+                    }
+
+                    if (inputAmount > operationAndFeeAmount)
+                    {
+                        oddOutputs[from.Address] = oddOutputs[from.Address] ?? tx.AddOutput(0, from.Address);
+                        oddOutputs[from.Address].Value = inputAmount - operationAndFeeAmount;
+                    }
+                    else if (oddOutputs.TryGetValue(from.Address, out var vout)) // must always be true here
+                    {
+                        tx.Outputs.Remove(vout);
+                        oddOutputs[from.Address] = null;
+                    }
+                }
             }
 
             await _operationRepository.UpsertAsync(operationId, type,
                 items.Select(x => (x.from.ToString(), x.to.ToString(), x.amount.ToUnit(asset.Unit))).ToArray(),
                 fee.ToUnit(asset.Unit), subtractFee, asset.Id);
 
-            return Serializer.ToString((tx, transactionBuilder.FindSpentCoins(tx)));
+            var coins = spentOutputs.Values
+                .SelectMany(v => v)
+                .Select(x => x.AsCoin())
+                .ToList();
+
+            return Serializer.ToString((tx, coins));
         }
 
         public async Task BroadcastAsync(Guid operationId, Transaction transaction)
@@ -329,7 +394,7 @@ namespace Lykke.Service.Zcash.Api.Services
             return curr;
         }
 
-        public Money CalcFee(TransactionBuilder builder, ISettings settings)
+        public Money CalcFee(Transaction tx, ISettings settings)
         {
             if (settings.UseDefaultFee)
             {
@@ -337,7 +402,7 @@ namespace Lykke.Service.Zcash.Api.Services
             }
             else
             {
-                var fee = builder.EstimateFees(new FeeRate(Money.Coins(settings.FeePerKb)));
+                var fee = new FeeRate(Money.Coins(settings.FeePerKb)).GetFee(tx);
                 var min = Money.Coins(settings.MinFee);
                 var max = Money.Coins(settings.MaxFee);
 

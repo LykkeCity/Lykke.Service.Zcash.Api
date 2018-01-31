@@ -24,5 +24,15 @@ namespace Lykke.Service.Zcash.Api.Services.Models
         {
             return new Coin(uint256.Parse(TxId), Vout, Money, new Script(Encoders.Hex.DecodeData(ScriptPubKey)));
         }
+
+        public OutPoint AsOutPoint()
+        {
+            return new OutPoint(uint256.Parse(TxId), Vout);
+        }
+
+        public TxIn AsTxIn()
+        {
+            return new TxIn(AsOutPoint());
+        }
     }
 }

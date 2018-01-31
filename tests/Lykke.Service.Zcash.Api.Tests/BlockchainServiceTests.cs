@@ -73,7 +73,7 @@ namespace Lykke.Service.Zcash.Api.Tests
                 Vout = 0,
                 Address = "tmA4rvdJU3HZ4ZUzZSjEUg7wbf1unbDBvGb",
                 ScriptPubKey = "76a91403e105ea5dbb243cddada1ec31cebd92266cd22588ac",
-                Amount = 0.99996160M,
+                Amount = 2.00000000M,
                 Confirmations = 2411,
             },
             new Utxo
@@ -82,7 +82,16 @@ namespace Lykke.Service.Zcash.Api.Tests
                 Vout = 1,
                 Address = "tmL4JCMEFQW2YtxQptLbBJtH6dzowHouyxw",
                 ScriptPubKey = "76a9147176f5d11e11c59a1248ef0bf0d6dadb2be1686188ac",
-                Amount = 1.99990000M,
+                Amount = 2.00000000M,
+                Confirmations = 4724,
+            },
+            new Utxo
+            {
+                TxId = "afcbc8742bcecbb5bc7d5b24854619d26fb3944914f0a0d7a8d1d28af525c0c2",
+                Vout = 2,
+                Address = "tmBh9ifoTp5keLnCcVnpLzkuMiTLMoPaYdR",
+                ScriptPubKey = "76a91415b6246e9b88867cdc3e14b9a5085813ca6d8b4888ac",
+                Amount = 3.00000000M,
                 Confirmations = 4724,
             }
         };
@@ -111,57 +120,233 @@ namespace Lykke.Service.Zcash.Api.Tests
                 settings);
         }
 
-        public RPCResponse RpcResponse(object response)
+        public Money GetInputAmount(TxIn input)
         {
-            return RPCResponse.Load(response.ToJson().ToStream());
+            return utxo
+                .First(x => input.PrevOut.Hash.ToString() == x.TxId && input.PrevOut.N == x.Vout)
+                .Money;
         }
 
         [Fact]
         public async Task Build_ShouldAddFee()
         {
             // Arrange
+            var type = OperationType.SingleFromSingleTo;
+            var subtractFee = false;
+            var from = depositWallet1;
+            var to = hotWallet;
+            var amount = Money.Coins(1);
 
             // Act
-            var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), OperationType.SISO, Asset.Zec, false, (depositWallet1, hotWallet, Money.Coins(1)));
+            var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to, amount));
             var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
 
             // Assert
             // only necessary utxo are used
-            Assert.Single(tx.Inputs);
+            var inputAmount = GetInputAmount(Assert.Single(tx.Inputs));
             // returns correct change and sends correct amount
-            Assert.Collection(tx.Outputs,
-                vout => {
-                    Assert.True(vout.IsTo(depositWallet1));
-                    Assert.Equal(Money.Coins(3) - Money.Coins(1) - Constants.DefaultFee, vout.Value);
-                },
-                vout => {
-                    Assert.True(vout.IsTo(hotWallet));
-                    Assert.Equal(Money.Coins(1), vout.Value);
-                });
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(from) && vout.Value == inputAmount - amount - Constants.DefaultFee);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(to) && vout.Value == amount);
+        }
+
+        [Fact]
+        public async Task Build_ShouldAddFee_ForMultiFrom()
+        {
+            // Arrange
+            var type = OperationType.MultiFromSingleTo;
+            var subtractFee = false;
+            var to = hotWallet;
+            var from1 = depositWallet1;
+            var from2 = depositWallet2;
+            var amount1 = Money.Coins(1);
+            var amount2 = Money.Coins(1);
+            var fees = Constants.DefaultFee.Split(2).ToArray();
+
+            // Act
+            var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from1, to, amount1), (from2, to, amount2));
+            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+
+            // Assert
+            // only necessary utxo are used
+            Assert.Equal(2, tx.Inputs.Count);
+            // returns correct change and sends correct amounts
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(from1) && vout.Value == GetInputAmount(tx.Inputs[0]) - amount1 - fees[0]);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(from2) && vout.Value == GetInputAmount(tx.Inputs[1]) - amount2 - fees[1]);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(to) && vout.Value == amount1 + amount2);
+        }
+
+        [Fact]
+        public async Task Build_ShouldAddFee_ForMultiFromMultiTo()
+        {
+            // Arrange
+            var type = OperationType.SingleFromMultiTo;
+            var subtractFee = false;
+            var from1 = depositWallet1;
+            var from2 = hotWallet;
+            var to1 = hotWallet;
+            var to2 = depositWallet2;
+            var amount1 = Money.Coins(1);
+            var amount2 = Money.Coins(1);
+            var fees = Constants.DefaultFee.Split(2).ToArray();
+
+            // Act
+            var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from1, to1, amount1), (from2, to2, amount2));
+            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+
+            // Assert
+            // only necessary utxo are used
+            Assert.Equal(2, tx.Inputs.Count);
+            // returns correct change and sends correct amount
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(from1) && vout.Value == GetInputAmount(tx.Inputs[0]) - amount1 - fees[0]);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(from1) && vout.Value == GetInputAmount(tx.Inputs[1]) - amount2 - fees[1]);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(to1) && vout.Value == amount1);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(to2) && vout.Value == amount2);
+        }
+
+        [Fact]
+        public async Task Build_ShouldAddFee_ForMultiTo()
+        {
+            // Arrange
+            var type = OperationType.SingleFromMultiTo;
+            var subtractFee = false;
+            var from = hotWallet;
+            var to1 = depositWallet1;
+            var to2 = depositWallet2;
+            var amount1 = Money.Coins(1);
+            var amount2 = Money.Coins(1);
+
+            // Act
+            var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to1, amount1), (from, to2, amount2));
+            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+
+            // Assert
+            // only necessary utxo are used
+            var inputAmount = GetInputAmount(Assert.Single(tx.Inputs));
+            // returns correct change and sends correct amount
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(from) && vout.Value == inputAmount - amount1 - amount2 - Constants.DefaultFee);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(to1) && vout.Value == amount1);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(to2) && vout.Value == amount2);
         }
 
         [Fact]
         public async Task Build_ShouldSubtractFee()
         {
             // Arrange
+            var type = OperationType.SingleFromSingleTo;
+            var subtractFee = true;
+            var from = depositWallet1;
+            var to = hotWallet;
+            var amount = Money.Coins(1);
 
             // Act
-            var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), OperationType.SISO, Asset.Zec, true, (depositWallet1, hotWallet, Money.Coins(1)));
+            var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to, amount));
             var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
 
             // Assert
             // only necessary utxo are used
-            Assert.Single(tx.Inputs);
+            var inputAmount = GetInputAmount(Assert.Single(tx.Inputs));
             // returns correct change and sends correct amount
-            Assert.Collection(tx.Outputs,
-                vout => {
-                    Assert.True(vout.IsTo(depositWallet1));
-                    Assert.Equal(Money.Coins(3) - Money.Coins(1), vout.Value);
-                },
-                vout => {
-                    Assert.True(vout.IsTo(hotWallet));
-                    Assert.Equal(Money.Coins(1) - Constants.DefaultFee, vout.Value);
-                });
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(depositWallet1) && vout.Value == inputAmount - amount);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(hotWallet) && vout.Value == amount - Constants.DefaultFee);
+        }
+
+        [Fact]
+        public async Task Build_ShouldSubtractFee_ForMultiFrom()
+        {
+            // Arrange
+            var type = OperationType.MultiFromSingleTo;
+            var subtractFee = true;
+            var to = hotWallet;
+            var from1 = depositWallet1;
+            var from2 = depositWallet2;
+            var amount1 = Money.Coins(1);
+            var amount2 = Money.Coins(1);
+
+            // Act
+            var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from1, to, amount1), (from2, to, amount2));
+            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+
+            // Assert
+            // only necessary utxo are used
+            Assert.Equal(2, tx.Inputs.Count);
+            // returns correct change and sends correct amounts
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(from1) && vout.Value == GetInputAmount(tx.Inputs[0]) - amount1);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(from2) && vout.Value == GetInputAmount(tx.Inputs[1]) - amount2);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(to) && vout.Value == amount1 + amount2 - Constants.DefaultFee);
+        }
+
+        [Fact]
+        public async Task Build_ShouldSubtractFee_ForMultiFromMultiTo()
+        {
+            // Arrange
+            var type = OperationType.SingleFromMultiTo;
+            var subtractFee = true;
+            var from1 = depositWallet1;
+            var from2 = hotWallet;
+            var to1 = hotWallet;
+            var to2 = depositWallet2;
+            var amount1 = Money.Coins(1);
+            var amount2 = Money.Coins(1);
+            var fees = Constants.DefaultFee.Split(2).ToArray();
+
+            // Act
+            var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from1, to1, amount1), (from2, to2, amount2));
+            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+
+            // Assert
+            // only necessary utxo are used
+            Assert.Equal(2, tx.Inputs.Count);
+            // returns correct change and sends correct amount
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(from1) && vout.Value == GetInputAmount(tx.Inputs[0]) - amount1);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(from1) && vout.Value == GetInputAmount(tx.Inputs[1]) - amount2);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(to1) && vout.Value == amount1 - fees[0]);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(to2) && vout.Value == amount2 - fees[1]);
+        }
+
+        [Fact]
+        public async Task Build_ShouldSubtractFee_ForMultiTo()
+        {
+            // Arrange
+            var type = OperationType.SingleFromMultiTo;
+            var subtractFee = true;
+            var from = hotWallet;
+            var to1 = depositWallet1;
+            var to2 = depositWallet2;
+            var amount1 = Money.Coins(1);
+            var amount2 = Money.Coins(1);
+            var fees = Constants.DefaultFee.Split(2).ToArray();
+
+            // Act
+            var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to1, amount1), (from, to2, amount2));
+            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+
+            // Assert
+            // only necessary utxo are used
+            var inputAmount = GetInputAmount(Assert.Single(tx.Inputs));
+            // returns correct change and sends correct amount
+
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(from) && vout.Value == inputAmount - amount1 - amount2);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(to1) && vout.Value == amount1 - fees[0]);
+            Assert.Contains(tx.Outputs, vout => vout.IsTo(to2) && vout.Value == amount2 - fees[1]);
+        }
+
+        [Theory]
+        [InlineData(7)] // not enough for operation
+        [InlineData(6)] // not enough for fee
+        public async Task Build_ShouldThrowNotEnoughFunds(decimal amountValue)
+        {
+            // Arrange
+            var type = OperationType.SingleFromSingleTo;
+            var subtractFee = false;
+            var from = depositWallet1;
+            var to = hotWallet;
+            var amount = Money.Coins(amountValue);
+
+            // Act
+
+            // Assert
+            await Assert.ThrowsAsync<NotEnoughFundsException>(async () =>
+                await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to, amount)));
         }
     }
 }

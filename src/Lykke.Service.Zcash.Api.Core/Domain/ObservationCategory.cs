@@ -6,8 +6,8 @@ namespace Lykke.Service.Zcash.Api.Core.Domain
 {
     public enum ObservationCategory
     {
-        Balance = 1,
+        From = 1,
         To = 2,
-        From = 3
+        Balance = 3
     }
 }
