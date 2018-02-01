@@ -1,5 +1,8 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
+using Lykke.Common.Api.Contract.Responses;
+using Lykke.Common.ApiLibrary.Contract;
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Balances;
 using Lykke.Service.Zcash.Api.Core.Domain;
@@ -7,6 +10,7 @@ using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Lykke.Service.Zcash.Api.Controllers
 {
@@ -19,17 +23,25 @@ namespace Lykke.Service.Zcash.Api.Controllers
         {
             _blockchainService = blockchainService;
         }
-
+        
         [HttpGet]
-        public async Task<PaginationResponse<WalletBalanceContract>> Get(
-            [FromQuery]string continuation = null,
-            [FromQuery]int? take = 100)
+        [ProducesResponseType(typeof(PaginationResponse<WalletBalanceContract>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Get(
+            [FromQuery]string continuation,
+            [FromQuery]int take)
         {
-            var result = await _blockchainService.GetBalancesAsync(continuation, take.Value);
+            if (!ModelState.IsValid ||
+                !ModelState.IsValidContinuation(continuation))
+            {
+                return BadRequest(ErrorResponseFactory.Create(ModelState));
+            }
 
-            return PaginationResponse.From(
+            var result = await _blockchainService.GetBalancesAsync(continuation, take);
+
+            return Ok(PaginationResponse.From(
                 result.continuation,
-                result.items.Select(b => b.ToWalletContract()).ToArray());
+                result.items.Select(b => b.ToWalletContract()).ToArray()));
         }
 
         [HttpPost("{address}/observation")]
@@ -37,6 +49,12 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Create([FromRoute]string address)
         {
+            if (!ModelState.IsValid ||
+                !ModelState.IsValidAddress(address))
+            {
+                return BadRequest(ErrorResponseFactory.Create(ModelState));
+            }
+
             if (await _blockchainService.TryCreateObservableAddressAsync(ObservationCategory.Balance, address))
                 return Ok();
             else
@@ -48,6 +66,12 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> Delete([FromRoute]string address)
         {
+            if (!ModelState.IsValid ||
+                !ModelState.IsValidAddress(address))
+            {
+                return BadRequest(ErrorResponseFactory.Create(ModelState));
+            }
+
             if (await _blockchainService.TryDeleteObservableAddressAsync(ObservationCategory.Balance, address))
                 return Ok();
             else

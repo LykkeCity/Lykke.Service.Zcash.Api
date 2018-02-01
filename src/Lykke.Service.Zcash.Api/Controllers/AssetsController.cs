@@ -1,9 +1,14 @@
-﻿using System.Linq;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using Lykke.Common.Api.Contract.Responses;
+using Lykke.Common.ApiLibrary.Contract;
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Assets;
 using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Lykke.Service.Zcash.Api.Controllers
 {
@@ -15,12 +20,20 @@ namespace Lykke.Service.Zcash.Api.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        public PaginationResponse<AssetContract> GetAssetList(
-            [FromQuery]string continuation = null, 
-            [FromQuery]int? take = 100)
+        [ProducesResponseType(typeof(PaginationResponse<AssetContract>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        public IActionResult GetAssetList(
+            [FromQuery]string continuation,
+            [FromQuery]int take)
         {
-            return PaginationResponse.From(null, 
-                Constants.Assets.Values.Select(v => v.ToAssetContract()).ToArray());
+            if (!ModelState.IsValid ||
+                !ModelState.IsValidContinuation(continuation))
+            {
+                return BadRequest(ErrorResponseFactory.Create(ModelState));
+            }
+
+            return Ok(PaginationResponse.From(null, 
+                Constants.Assets.Values.Select(v => v.ToAssetContract()).ToArray()));
         }
 
         /// <summary>

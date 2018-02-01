@@ -29,7 +29,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 
         Task<bool> TryDeleteObservableAddressAsync(ObservationCategory category, string address);
 
-        bool ValidateAddress(string address, out BitcoinAddress bitcoinAddress);
+        bool ValidateAddress(string address);
 
         void EnsureSigned(Transaction transaction, ICoin[] coins);
     }

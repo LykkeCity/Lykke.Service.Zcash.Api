@@ -47,18 +47,9 @@ namespace Lykke.Service.Zcash.Api.Services
             _settings = settings;
         }
 
-        public bool ValidateAddress(string address, out BitcoinAddress bitcoinAddress)
+        public bool ValidateAddress(string address)
         {
-            try
-            {
-                bitcoinAddress = BitcoinAddress.Create(address);
-                return bitcoinAddress != null;
-            }
-            catch
-            {
-                bitcoinAddress = null;
-                return false;
-            }
+            return Core.Utils.ValidateAddress(address, out var _);
         }
 
         public void EnsureSigned(Transaction transaction, ICoin[] coins)
@@ -204,7 +195,9 @@ namespace Lykke.Service.Zcash.Api.Services
         public async Task<bool> TryDeleteOperationAsync(Guid operationId)
         {
             var operation = await _operationRepository.GetAsync(operationId, false);
-            if (operation.State != OperationState.Deleted)
+
+            if (operation != null &&
+                operation.State != OperationState.Deleted)
             {
                 await _operationRepository.UpdateAsync(operationId, deletedUtc: DateTime.UtcNow);
                 return true;

@@ -24,7 +24,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         {
             return new AddressValidationResponse()
             {
-                IsValid = _blockchainService.ValidateAddress(address, out _)
+                IsValid = _blockchainService.ValidateAddress(address)
             };
         }
     }
