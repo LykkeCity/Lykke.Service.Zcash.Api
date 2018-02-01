@@ -196,7 +196,7 @@ namespace Lykke.Service.Zcash.Api.Services
         {
             var operation = await _operationRepository.GetAsync(operationId, false);
 
-            if (operation != null &&
+            if (operation != null && 
                 operation.State != OperationState.Deleted)
             {
                 await _operationRepository.UpdateAsync(operationId, deletedUtc: DateTime.UtcNow);

@@ -25,7 +25,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
 
         [HttpPost("{category}/{address}/observation")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Observe(
             [FromRoute]HistoryObservationCategory category,

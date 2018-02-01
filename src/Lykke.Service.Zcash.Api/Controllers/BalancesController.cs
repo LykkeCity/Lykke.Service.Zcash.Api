@@ -46,6 +46,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
 
         [HttpPost("{address}/observation")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Create([FromRoute]string address)
         {
@@ -64,6 +65,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [HttpDelete("{address}/observation")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> Delete([FromRoute]string address)
         {
             if (!ModelState.IsValid ||

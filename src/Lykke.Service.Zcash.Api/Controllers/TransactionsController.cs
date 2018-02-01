@@ -65,12 +65,10 @@ namespace Lykke.Service.Zcash.Api.Controllers
             }
 
             var operation = await _blockchainService.GetOperationAsync(operationId);
-            if (operation == null)
-            {
+            if (operation != null)
+                return Ok(toResponse(operation));
+            else
                 return NoContent();
-            }
-
-            return Ok(toResponse(operation));
         }
 
         [HttpPost("single")]
@@ -186,6 +184,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [HttpDelete("broadcast/{operationId:guid}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> DeleteBroadcasted([FromRoute]Guid operationId)
         {
             if (!ModelState.IsValid ||
