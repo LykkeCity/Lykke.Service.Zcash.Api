@@ -267,7 +267,14 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<IEnumerable<IHistoryItem>> GetHistoryAsync(ObservationCategory category, string address, string afterHash = null, int take = 100)
         {
-            return await _historyRepository.GetByAddressAsync(category, address, afterHash, take);
+            if (await IsObservableAsync(category, address))
+            {
+                return await _historyRepository.GetByAddressAsync(category, address, afterHash, take);
+            }
+            else
+            {
+                return new IHistoryItem[0];
+            }
         }
 
         public async Task<(string continuation, IEnumerable<AddressBalance> items)> GetBalancesAsync(string continuation = null, int take = 100)

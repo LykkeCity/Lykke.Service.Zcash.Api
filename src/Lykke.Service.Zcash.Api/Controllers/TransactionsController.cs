@@ -1,12 +1,15 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Common;
 using Lykke.Common.Api.Contract.Responses;
 using Lykke.Common.ApiLibrary.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
 using Lykke.Service.Zcash.Api.Core.Domain;
+using Lykke.Service.Zcash.Api.Core.Domain.History;
 using Lykke.Service.Zcash.Api.Core.Domain.Operations;
 using Lykke.Service.Zcash.Api.Core.Services;
+using Lykke.Service.Zcash.Api.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -197,6 +200,68 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return Ok();
             else
                 return NoContent();
+        }
+
+        [HttpPost("history/{category}/{address}/observation")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> Observe(
+            [FromRoute]HistoryObservationCategory category,
+            [FromRoute]string address)
+        {
+            if (!ModelState.IsValid ||
+                !ModelState.IsValidAddress(address))
+            {
+                return BadRequest(ErrorResponseFactory.Create(ModelState));
+            }
+
+            if (await _blockchainService.TryCreateObservableAddressAsync((ObservationCategory)category, address))
+                return Ok();
+            else
+                return StatusCode(StatusCodes.Status409Conflict);
+        }
+
+        [HttpDelete("history/{category}/{address}/observation")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
+        public async Task<IActionResult> DeleteObservation(
+            [FromRoute]HistoryObservationCategory category,
+            [FromRoute]string address)
+        {
+            if (!ModelState.IsValid ||
+                !ModelState.IsValidAddress(address))
+            {
+                return BadRequest(ErrorResponseFactory.Create(ModelState));
+            }
+
+            if (await _blockchainService.TryDeleteObservableAddressAsync((ObservationCategory)category, address))
+                return Ok();
+            else
+                return NoContent();
+        }
+
+        [HttpGet("history/{category}/{address}")]
+        [ProducesResponseType(typeof(HistoricalTransactionContract[]), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetHistory(
+            [FromRoute]HistoryObservationCategory category,
+            [FromRoute]string address,
+            [FromQuery]string afterHash,
+            [FromQuery]int take)
+        {
+            if (!ModelState.IsValid ||
+                !ModelState.IsValidAddress(address))
+            {
+                return BadRequest(ErrorResponseFactory.Create(ModelState));
+            }
+
+            var txs = await _blockchainService.GetHistoryAsync((ObservationCategory)category, address, afterHash, take);
+
+            return Ok(txs
+                .Select(tx => tx.ToHistoricalContract())
+                .ToArray());
         }
     }
 }

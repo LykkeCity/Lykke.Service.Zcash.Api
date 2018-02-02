@@ -15,10 +15,6 @@ namespace Lykke.Service.Zcash.Api.Controllers
     [Route("/api/assets")]
     public class AssetsController : Controller
     {
-        /// <summary>
-        /// Returns list of Zcash units
-        /// </summary>
-        /// <returns></returns>
         [HttpGet]
         [ProducesResponseType(typeof(PaginationResponse<AssetContract>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -36,11 +32,6 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 Constants.Assets.Values.Select(v => v.ToAssetContract()).ToArray()));
         }
 
-        /// <summary>
-        /// Returns Zcash unit data
-        /// </summary>
-        /// <param name="id">Unit identifier</param>
-        /// <returns></returns>
         [HttpGet("{id}")]
         public AssetResponse GetAsset(string id)
         {

@@ -14,11 +14,6 @@ namespace Lykke.Service.Zcash.Api.Controllers
             _blockchainService = blockchainService;
         }
 
-        /// <summary>
-        /// Checks if address is valid Zcash t-address
-        /// </summary>
-        /// <param name="address"></param>
-        /// <returns></returns>
         [HttpGet("{address}/validity")]
         public AddressValidationResponse IsValid(string address)
         {

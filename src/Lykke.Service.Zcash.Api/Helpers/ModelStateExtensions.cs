@@ -261,7 +261,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
             {
                 self.AddModelError(
                     nameof(BroadcastTransactionRequest.SignedTransaction),
-                    ex.Message);
+                    "Invalid signed transaction data");
             }
 
             return self.IsValid;
