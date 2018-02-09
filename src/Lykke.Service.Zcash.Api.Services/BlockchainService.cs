@@ -54,10 +54,12 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public void EnsureSigned(Transaction transaction, ICoin[] coins)
         {
-            // check transaction sign only (due to differences between BTC and ZEC fee calculation)
+            // checking fees or dust thresholds doesn't make sense here because 
+            // exact fee rate was used to build the transaction
+
             if (!new TransactionBuilder()
                 .AddCoins(coins)
-                .SetTransactionPolicy(new StandardTransactionPolicy { CheckFee = false })
+                .SetTransactionPolicy(new StandardTransactionPolicy { CheckFee = false, MaxTxFee = null, MinRelayTxFee = null })
                 .Verify(transaction, out var errors))
             {
                 throw new InvalidOperationException(errors.ToStringViaSeparator(Environment.NewLine));
@@ -67,6 +69,8 @@ namespace Lykke.Service.Zcash.Api.Services
         public async Task<string> BuildAsync(Guid operationId, OperationType type, Asset asset, bool subtractFee, (BitcoinAddress from, BitcoinAddress to, Money amount)[] items)
         {
             var settings = await LoadStoredSettingsAsync();
+
+            var relayFee = new FeeRate(Money.Coins(settings.FeePerKb));
 
             var inputs = 
                 items.GroupBy(x => x.from)
@@ -120,7 +124,11 @@ namespace Lykke.Service.Zcash.Api.Services
 
             foreach (var to in outputs)
             {
-                tx.AddOutput(to.Amount, to.Address);
+                var txout = tx.AddOutput(to.Amount, to.Address);
+                if (txout.IsDust(relayFee))
+                {
+                    throw new DustException("Output amount is too small", to.Amount, to.Address);
+                }
             }
 
             var fee = CalcFee(tx, settings);

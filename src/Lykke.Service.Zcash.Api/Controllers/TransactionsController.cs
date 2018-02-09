@@ -4,7 +4,9 @@ using System.Threading.Tasks;
 using Common;
 using Lykke.Common.Api.Contract.Responses;
 using Lykke.Common.ApiLibrary.Contract;
+using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
+using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain;
 using Lykke.Service.Zcash.Api.Core.Domain.History;
 using Lykke.Service.Zcash.Api.Core.Domain.Operations;
@@ -44,12 +46,13 @@ namespace Lykke.Service.Zcash.Api.Controllers
             {
                 signContext = await _blockchainService.BuildAsync(operationId, OperationType.SingleFromSingleTo, asset, subtractFees, items);
             }
+            catch (DustException)
+            {
+                return BadRequest(BlockchainErrorResponse.FromKnownError(BlockchainErrorCode.AmountIsTooSmall));
+            }
             catch (NotEnoughFundsException)
             {
-                return Ok(new BuildTransactionResponse
-                {
-                    ErrorCode = TransactionExecutionError.NotEnoughtBalance
-                });
+                return BadRequest(BlockchainErrorResponse.FromKnownError(BlockchainErrorCode.NotEnoughtBalance));
             }
 
             return Ok(new BuildTransactionResponse
@@ -75,9 +78,9 @@ namespace Lykke.Service.Zcash.Api.Controllers
         }
 
         [HttpPost("single")]
-        [ProducesResponseType(typeof(BuildTransactionResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(BuildTransactionResponse))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(BlockchainErrorResponse))]
+        [ProducesResponseType(StatusCodes.Status409Conflict, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> Build([FromBody]BuildSingleTransactionRequest request)
         {
             if (!ModelState.IsValid || 
@@ -90,9 +93,9 @@ namespace Lykke.Service.Zcash.Api.Controllers
         }
 
         [HttpPost("many-inputs")]
-        [ProducesResponseType(typeof(BuildTransactionResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(BuildTransactionResponse))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(BlockchainErrorResponse))]
+        [ProducesResponseType(StatusCodes.Status409Conflict, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> Build([FromBody]BuildTransactionWithManyInputsRequest request)
         {
             if (!ModelState.IsValid ||
@@ -105,9 +108,9 @@ namespace Lykke.Service.Zcash.Api.Controllers
         }
 
         [HttpPost("many-outputs")]
-        [ProducesResponseType(typeof(BuildTransactionResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(BuildTransactionResponse))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(BlockchainErrorResponse))]
+        [ProducesResponseType(StatusCodes.Status409Conflict, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> Build([FromBody]BuildTransactionWithManyOutputsRequest request)
         {
             if (!ModelState.IsValid ||
@@ -127,10 +130,10 @@ namespace Lykke.Service.Zcash.Api.Controllers
         }
 
         [HttpPost("broadcast")]
-        [ProducesResponseType(typeof(BroadcastTransactionResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(BlockchainErrorResponse))]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ErrorResponse))]
+        [ProducesResponseType(StatusCodes.Status409Conflict, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> Broadcast([FromBody]BroadcastTransactionRequest request)
         {
             if (!ModelState.IsValid || 
@@ -157,35 +160,34 @@ namespace Lykke.Service.Zcash.Api.Controllers
 
             await _blockchainService.BroadcastAsync(operation.OperationId, transaction);
             
-            return Ok(new BroadcastTransactionResponse());
+            return Ok();
         }
 
         [HttpGet("broadcast/single/{operationId:guid}")]
-        [ProducesResponseType(typeof(BroadcastedSingleTransactionResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(BroadcastedSingleTransactionResponse))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> GetSingle([FromRoute]Guid operationId)
         {
             return await Get(operationId, op => op.ToSingleResponse());
         }
 
         [HttpGet("broadcast/many-inputs/{operationId:guid}")]
-        [ProducesResponseType(typeof(BroadcastedTransactionWithManyInputsResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(BroadcastedTransactionWithManyInputsResponse))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> GetManyInputs([FromRoute]Guid operationId)
         {
             return await Get(operationId, op => op.ToManyInputsResponse());
         }
 
         [HttpGet("broadcast/many-outputs/{operationId:guid}")]
-        [ProducesResponseType(typeof(BroadcastedTransactionWithManyOutputsResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(BroadcastedTransactionWithManyOutputsResponse))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> GetManyOutputs([FromRoute]Guid operationId)
         {
             return await Get(operationId, op => op.ToManyOutputsResponse());
         }
 
         [HttpDelete("broadcast/{operationId:guid}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> DeleteBroadcasted([FromRoute]Guid operationId)
@@ -243,8 +245,8 @@ namespace Lykke.Service.Zcash.Api.Controllers
         }
 
         [HttpGet("history/{category}/{address}")]
-        [ProducesResponseType(typeof(HistoricalTransactionContract[]), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(HistoricalTransactionContract[]))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> GetHistory(
             [FromRoute]HistoryObservationCategory category,
             [FromRoute]string address,
