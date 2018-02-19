@@ -39,7 +39,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<RecentResult> ListSinceBlockAsync(string lastBlockHash, int confirmationLevel)
         {
-            return await SendRpcAsync<RecentResult>(RPCOperations.listsinceblock, lastBlockHash, confirmationLevel, true);
+            return await SendRpcAsync<RecentResult>(RPCOperations.listsinceblock, lastBlockHash, confirmationLevel >= 1 ? confirmationLevel : 1, true);
         }
 
         public async Task<AddressInfo> ValidateAddressAsync(string address)

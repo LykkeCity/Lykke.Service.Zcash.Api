@@ -49,5 +49,10 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
         {
             return await _tableStorage.GetDataWithContinuationTokenAsync(GetPartitionKey(category), take, continuation);
         }
+
+        public async Task<IEnumerable<IAddress>> GetAllAsync()
+        {
+            return await _tableStorage.GetDataAsync();
+        }
     }
 }

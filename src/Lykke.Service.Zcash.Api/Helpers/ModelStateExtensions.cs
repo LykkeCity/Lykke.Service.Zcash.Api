@@ -155,7 +155,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
                 else
                 {
                     self.AddModelError(
-                        $"{nameof(BuildTransactionWithManyInputsRequest.Inputs)}[{i}].{nameof(TransactionInputContract.FromAddress)}",
+                        $"{nameof(BuildTransactionWithManyInputsRequest.Inputs)}[{i}].{nameof(BuildingTransactionInputContract.FromAddress)}",
                         "Invalid sender adddress");
                 }
 
@@ -171,7 +171,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
                     catch (ConversionException ex)
                     {
                         self.AddModelError(
-                            $"{nameof(BuildTransactionWithManyInputsRequest.Inputs)}[{i}].{nameof(TransactionInputContract.Amount)}",
+                            $"{nameof(BuildTransactionWithManyInputsRequest.Inputs)}[{i}].{nameof(BuildingTransactionOutputContract.Amount)}",
                             ex.Message);
                     }
                 }
@@ -218,7 +218,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
                 else
                 {
                     self.AddModelError(
-                        $"{nameof(BuildTransactionWithManyOutputsRequest.Outputs)}[{i}].{nameof(TransactionOutputContract.ToAddress)}",
+                        $"{nameof(BuildTransactionWithManyOutputsRequest.Outputs)}[{i}].{nameof(BuildingTransactionOutputContract.ToAddress)}",
                         "Invalid sender adddress");
                 }
 
@@ -232,7 +232,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
                     catch (ConversionException ex)
                     {
                         self.AddModelError(
-                            $"{nameof(BuildTransactionWithManyOutputsRequest.Outputs)}[{i}].{nameof(TransactionOutputContract.Amount)}",
+                            $"{nameof(BuildTransactionWithManyOutputsRequest.Outputs)}[{i}].{nameof(BuildingTransactionOutputContract.Amount)}",
                             ex.Message);
                     }
                 }

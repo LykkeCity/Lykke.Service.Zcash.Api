@@ -39,7 +39,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
                 Block = Convert.ToInt64(self.TimestampUtc.ToUnixTime()),
                 Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
                 Inputs = self.Items
-                    .Select(x => new TransactionInputContract { Amount = Conversions.CoinsToContract(x.Amount, Constants.Assets[self.AssetId].DecimalPlaces), FromAddress = x.FromAddress })
+                    .Select(x => new BroadcastedTransactionInputContract { Amount = Conversions.CoinsToContract(x.Amount, Constants.Assets[self.AssetId].DecimalPlaces), FromAddress = x.FromAddress })
                     .ToArray()
             };
         }
@@ -58,14 +58,18 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
                 Block = Convert.ToInt64(self.TimestampUtc.ToUnixTime()),
                 Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
                 Outputs = self.Items
-                    .Select(x => new TransactionOutputContract { Amount = Conversions.CoinsToContract(x.Amount, Constants.Assets[self.AssetId].DecimalPlaces), ToAddress = x.ToAddress })
+                    .Select(x => new BroadcastedTransactionOutputContract { Amount = Conversions.CoinsToContract(x.Amount, Constants.Assets[self.AssetId].DecimalPlaces), ToAddress = x.ToAddress })
                     .ToArray()
             };
         }
 
         public static BroadcastedTransactionState ToBroadcastedState(this OperationState self)
         {
-            return (BroadcastedTransactionState)((int)self + 1);
+            return
+                self == OperationState.Completed ? BroadcastedTransactionState.Completed :
+                self == OperationState.Failed ? BroadcastedTransactionState.Failed :
+                self == OperationState.Sent ? BroadcastedTransactionState.InProgress :
+                throw new InvalidOperationException($"Operation is {Enum.GetName(typeof(OperationState), self)}, it should not be requested through API.");
         }
 
         public static void EnsureType(this IOperation self, OperationType expected)

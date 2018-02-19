@@ -12,5 +12,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Addresses
         Task<IAddress> GetAsync(ObservationCategory category, string address);
 
         Task<(IEnumerable<IAddress> items, string continuation)> GetByCategoryAsync(ObservationCategory category, string continuation = null, int take = 100);
+
+        Task<IEnumerable<IAddress>> GetAllAsync();
     }
 }

@@ -357,6 +357,21 @@ namespace Lykke.Service.Zcash.Api.Services
             return (await _addressRepository.GetAsync(category, address)) != null;
         }
 
+        public async Task ImportAllObservableAddressesAsync()
+        {
+            // zcash doesn't support "importmulti" command,
+            // so we had to import one-by-one
+
+            var addresses = (await _addressRepository.GetAllAsync())
+                .Select(a => a.Address)
+                .ToHashSet();
+
+            foreach (var address in addresses)
+            {
+                await _blockchainReader.ImportAddressAsync(address);
+            }
+        }
+
         public async Task<ISettings> LoadStoredSettingsAsync()
         {
             return (await _settingsRepository.GetAsync()) ?? _settings;
