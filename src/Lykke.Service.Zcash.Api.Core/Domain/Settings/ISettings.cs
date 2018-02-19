@@ -12,5 +12,6 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Settings
         decimal MaxFee { get; }
         decimal MinFee { get; }
         bool UseDefaultFee { get; }
+        bool SkipNodeCheck { get; }
     }
 }

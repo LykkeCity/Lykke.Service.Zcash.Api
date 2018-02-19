@@ -311,6 +311,12 @@ namespace Lykke.Service.Zcash.Api.Services
                 }
             }
 
+            if (!settings.SkipNodeCheck && !balances.Any() && !(await _blockchainReader.GetAddresssesAsync()).Any())
+            {
+                await _log.WriteWarningAsync(nameof(GetBalancesAsync), 
+                    "NodeCheck", "It looks like Zcash node is a new one. Consider re-import observable addresses.");
+            }
+
             return (addressQuery.continuation, balances);
         }
 

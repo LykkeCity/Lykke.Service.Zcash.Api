@@ -27,5 +27,6 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Settings
         public decimal MaxFee { get; set; }
         public decimal MinFee { get; set; }
         public bool UseDefaultFee { get; set; }
+        public bool SkipNodeCheck { get; set; }
     }
 }

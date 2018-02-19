@@ -12,5 +12,6 @@ namespace Lykke.Service.Zcash.Api.Services
         Task<RecentResult> ListSinceBlockAsync(string lastBlockHash, int confirmationLevel);
         Task<string> SendRawTransactionAsync(Transaction transaction);
         Task<AddressInfo> ValidateAddressAsync(string address);
+        Task<string[]> GetAddresssesAsync();
     }
 }

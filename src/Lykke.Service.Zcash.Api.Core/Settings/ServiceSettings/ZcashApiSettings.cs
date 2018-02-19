@@ -1,4 +1,5 @@
 ﻿using Lykke.Service.Zcash.Api.Core.Domain.Settings;
+using Lykke.SettingsReader.Attributes;
 
 namespace Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings
 {
@@ -15,5 +16,8 @@ namespace Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings
         public int IndexInterval { get; set; }
         public string LastBlockHash { get; set; }
         public string NetworkType { get; set; }
+
+        [Optional]
+        public bool SkipNodeCheck { get; set; }
     }
 }

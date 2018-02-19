@@ -52,6 +52,11 @@ namespace Lykke.Service.Zcash.Api.Services
             await SendRpcAsync(RPCOperations.importaddress, address, string.Empty, false);
         }
 
+        public async Task<string[]> GetAddresssesAsync()
+        {
+            return await SendRpcAsync<string[]>(RPCOperations.getaddressesbyaccount, string.Empty);
+        }
+
         public async Task<T> SendRpcAsync<T>(RPCOperations command, params object[] parameters)
         {
             var result = await _rpcClient.SendCommandAsync(command, parameters);
