@@ -34,7 +34,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid ||
                 !ModelState.IsValidContinuation(continuation))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             var result = await _blockchainService.GetBalancesAsync(continuation, take);
@@ -53,7 +53,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid ||
                 !ModelState.IsValidAddress(address))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             if (await _blockchainService.TryCreateObservableAddressAsync(ObservationCategory.Balance, address))
@@ -71,7 +71,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid ||
                 !ModelState.IsValidAddress(address))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             if (await _blockchainService.TryDeleteObservableAddressAsync(ObservationCategory.Balance, address))

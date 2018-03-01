@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Common;
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
@@ -265,6 +267,33 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
             }
 
             return self.IsValid;
+        }
+
+        public static BlockchainErrorResponse ToBlockchainErrorResponse(this ModelStateDictionary self)
+        {
+            var response = new BlockchainErrorResponse
+            {
+                ModelErrors = new Dictionary<string, List<string>>(),
+                ErrorCode = BlockchainErrorCode.Unknown
+            };
+
+            foreach (var state in self)
+            {
+                var messages = state.Value.Errors
+                    .Where(e => !string.IsNullOrWhiteSpace(e.ErrorMessage))
+                    .Select(e => e.ErrorMessage)
+                    .Concat(state.Value.Errors
+                        .Where(e => string.IsNullOrWhiteSpace(e.ErrorMessage))
+                        .Select(e => e.Exception.Message))
+                    .ToList();
+
+                if (messages.Any())
+                {
+                    response.ModelErrors.Add(state.Key, messages);
+                }
+            }
+
+            return response;
         }
     }
 }

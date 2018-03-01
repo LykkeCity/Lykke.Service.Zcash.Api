@@ -9,6 +9,7 @@ using Lykke.AzureStorage.Tables.Entity.Metamodel.Providers;
 using Lykke.Common.ApiLibrary.Middleware;
 using Lykke.Common.ApiLibrary.Swagger;
 using Lykke.Logs;
+using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Core.Settings;
 using Lykke.Service.Zcash.Api.Modules;
@@ -90,7 +91,7 @@ namespace Lykke.Service.Zcash.Api
                     app.UseDeveloperExceptionPage();
                 }
 
-                app.UseLykkeMiddleware("Zcash.Api", ex => new { Message = ex.ToString() }, logClientErrors: true);
+                app.UseLykkeMiddleware("Zcash.Api", ex => BlockchainErrorResponse.FromUnknownError(ex.ToString()), logClientErrors: true);
 
                 app.UseMvc();
                 app.UseSwagger(c =>

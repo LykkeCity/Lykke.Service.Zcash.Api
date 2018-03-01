@@ -25,7 +25,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid ||
                 !ModelState.IsValidContinuation(continuation))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             return Ok(PaginationResponse.From(null, 

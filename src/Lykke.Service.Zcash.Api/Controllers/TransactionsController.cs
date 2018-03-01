@@ -67,7 +67,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid ||
                 !ModelState.IsValidOperationId(operationId))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             var operation = await _blockchainService.GetOperationAsync(operationId);
@@ -86,7 +86,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid || 
                 !ModelState.IsValidRequest(request, out var items, out var asset))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             return await Build(request.OperationId, OperationType.SingleFromSingleTo, asset, request.IncludeFee, items);
@@ -101,7 +101,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid ||
                 !ModelState.IsValidRequest(request, out var items, out var asset))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             return await Build(request.OperationId, OperationType.MultiFromSingleTo, asset, true, items);
@@ -116,7 +116,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid ||
                 !ModelState.IsValidRequest(request, out var items, out var asset))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             return await Build(request.OperationId, OperationType.SingleFromMultiTo, asset, false, items);
@@ -139,7 +139,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid || 
                 !ModelState.IsValidRequest(request, out var transaction, out var coins))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             _blockchainService.EnsureSigned(transaction, coins);
@@ -195,7 +195,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid ||
                 !ModelState.IsValidOperationId(operationId))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             if (await _blockchainService.TryDeleteOperationAsync(operationId))
@@ -215,7 +215,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid ||
                 !ModelState.IsValidAddress(address))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             if (await _blockchainService.TryCreateObservableAddressAsync((ObservationCategory)category, address))
@@ -235,7 +235,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid ||
                 !ModelState.IsValidAddress(address))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             if (await _blockchainService.TryDeleteObservableAddressAsync((ObservationCategory)category, address))
@@ -256,7 +256,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             if (!ModelState.IsValid ||
                 !ModelState.IsValidAddress(address))
             {
-                return BadRequest(ErrorResponseFactory.Create(ModelState));
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
             var txs = await _blockchainService.GetHistoryAsync((ObservationCategory)category, address, afterHash, take);
