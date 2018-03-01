@@ -3,6 +3,7 @@ using System.Linq;
 using Common;
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
+using NBitcoin;
 
 namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 {
@@ -21,7 +22,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
                 OperationId = self.OperationId,
                 State = self.State.ToBroadcastedState(),
                 Timestamp = self.TimestampUtc,
-                Block = Convert.ToInt64(self.TimestampUtc.ToUnixTime()),
+                Block = new DateTimeOffset(self.TimestampUtc).ToUnixTimeSeconds(),
             };
         }
 
@@ -36,7 +37,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
                 OperationId = self.OperationId,
                 State = self.State.ToBroadcastedState(),
                 Timestamp = self.TimestampUtc,
-                Block = Convert.ToInt64(self.TimestampUtc.ToUnixTime()),
+                Block = new DateTimeOffset(self.TimestampUtc).ToUnixTimeSeconds(),
                 Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
                 Inputs = self.Items
                     .Select(x => new BroadcastedTransactionInputContract { Amount = Conversions.CoinsToContract(x.Amount, Constants.Assets[self.AssetId].DecimalPlaces), FromAddress = x.FromAddress })
@@ -55,7 +56,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
                 OperationId = self.OperationId,
                 State = self.State.ToBroadcastedState(),
                 Timestamp = (self.SentUtc ?? self.CompletedUtc ?? self.FailedUtc).Value,
-                Block = Convert.ToInt64(self.TimestampUtc.ToUnixTime()),
+                Block = new DateTimeOffset(self.TimestampUtc).ToUnixTimeSeconds(),
                 Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
                 Outputs = self.Items
                     .Select(x => new BroadcastedTransactionOutputContract { Amount = Conversions.CoinsToContract(x.Amount, Constants.Assets[self.AssetId].DecimalPlaces), ToAddress = x.ToAddress })
