@@ -71,7 +71,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             }
 
             var operation = await _blockchainService.GetOperationAsync(operationId);
-            if (operation != null)
+            if (operation != null && operation.State != OperationState.Built && operation.State != OperationState.Deleted)
                 return Ok(toResponse(operation));
             else
                 return NoContent();
