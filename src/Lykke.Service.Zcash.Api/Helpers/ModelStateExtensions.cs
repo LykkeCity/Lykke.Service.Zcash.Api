@@ -17,8 +17,10 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
 {
     public static class ModelStateExtensions
     {
-        public static bool IsValidAddress(this ModelStateDictionary self, string address)
+        public static bool IsValidAddress(this ModelStateDictionary self, ref string address)
         {
+            address = address.Trim();
+
             if (CoreUtils.ValidateAddress(address, out var _))
             {
                 return true;

@@ -1,6 +1,7 @@
 ﻿using Lykke.Service.BlockchainApi.Contract.Addresses;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Lykke.Service.Zcash.Api.Controllers
 {
@@ -19,7 +20,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         {
             return new AddressValidationResponse()
             {
-                IsValid = _blockchainService.ValidateAddress(address)
+                IsValid = ModelState.IsValidAddress(ref address)
             };
         }
     }

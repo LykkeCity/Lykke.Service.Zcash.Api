@@ -213,7 +213,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             [FromRoute]string address)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(address))
+                !ModelState.IsValidAddress(ref address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -233,7 +233,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             [FromRoute]string address)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(address))
+                !ModelState.IsValidAddress(ref address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -254,7 +254,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             [FromQuery]int take)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(address))
+                !ModelState.IsValidAddress(ref address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
