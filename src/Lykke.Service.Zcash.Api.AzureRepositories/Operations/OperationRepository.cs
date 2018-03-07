@@ -34,14 +34,16 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
         public async Task<IOperation> UpsertAsync(Guid operationId, OperationType type, (string fromAddress, string toAddress, decimal amount)[] items,
             decimal fee, bool subtractFee, string assetId)
         {
-            var operationItemEntities = items.Select(item => new OperationItemEntity()
-            {
-                PartitionKey = GetOperationItemPartitionKey(operationId),
-                RowKey = GetOperationItemRowKey(),
-                Amount = item.amount,
-                FromAddress = item.fromAddress,
-                ToAddress = item.toAddress
-            });
+            var operationItemEntities = items
+                .Select(item => new OperationItemEntity()
+                {
+                    PartitionKey = GetOperationItemPartitionKey(operationId),
+                    RowKey = GetOperationItemRowKey(),
+                    Amount = item.amount,
+                    FromAddress = item.fromAddress,
+                    ToAddress = item.toAddress
+                })
+                .ToArray();
 
             var operationEntity = new OperationEntity()
             {
@@ -53,7 +55,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                 AssetId = assetId,
                 State = OperationState.Built,
                 BuiltUtc = DateTime.UtcNow,
-                Items = operationItemEntities.ToArray()
+                Items = operationItemEntities
             };
 
             await _operationStorage.InsertOrReplaceAsync(operationEntity);

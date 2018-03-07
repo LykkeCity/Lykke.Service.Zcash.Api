@@ -2,6 +2,7 @@
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.PlatformAbstractions;
 
 namespace Lykke.Service.Zcash.Api
 {
@@ -11,7 +12,7 @@ namespace Lykke.Service.Zcash.Api
 
         public static async Task Main(string[] args)
         {
-            Console.WriteLine($"Zcash.Api version {Microsoft.Extensions.PlatformAbstractions.PlatformServices.Default.Application.ApplicationVersion}");
+            Console.WriteLine($"{PlatformServices.Default.Application.ApplicationName} version {Microsoft.Extensions.PlatformAbstractions.PlatformServices.Default.Application.ApplicationVersion}");
 #if DEBUG
             Console.WriteLine("Is DEBUG");
 #else

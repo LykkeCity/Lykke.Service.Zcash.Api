@@ -20,8 +20,8 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.History
     {
         private INoSQLTableStorage<HistoryItemEntity> _historyStorage;
         private INoSQLTableStorage<IndexEntity> _indexStorage;
-        private static string GetHistoryPartitionKey(ObservationCategory category, string address) => $"{Enum.GetName(typeof(ObservationCategory), category)}_{address}";
-        private static string GetHistoryRowKey(DateTime timestamp, string hash) => $"{timestamp.ToString("yyyyMMddHHmmss")}_{hash}";
+        private static string GetHistoryPartitionKey(HistoryAddressCategory category, string address) => $"{Enum.GetName(typeof(HistoryAddressCategory), category)}_{address}";
+        private static string GetHistoryRowKey(DateTime timestamp, string hash) => $"{timestamp:yyyyMMddHHmmss}_{hash}";
         private static string GetIndexPartitionKey(string hash) => hash;
         private static string GetIndexRowKey() => string.Empty;
 
@@ -31,7 +31,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.History
             _indexStorage = AzureTableStorage<IndexEntity>.Create(connectionStringManager, "ZcashHistoryIndex", log);
         }
 
-        public async Task UpsertAsync(ObservationCategory category, string affectedAddress, DateTime timestampUtc, string hash,
+        public async Task UpsertAsync(HistoryAddressCategory category, string affectedAddress, DateTime timestampUtc, string hash,
             Guid? operationId, string fromAddress, string toAddress, decimal amount, string assetId)
         {
             await _historyStorage.InsertOrReplaceAsync(new HistoryItemEntity
@@ -55,7 +55,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.History
             });
         }
 
-        public async Task<IEnumerable<IHistoryItem>> GetByAddressAsync(ObservationCategory category, string address, string afterHash = null, int take = 100)
+        public async Task<IEnumerable<IHistoryItem>> GetByAddressAsync(HistoryAddressCategory category, string address, string afterHash = null, int take = 100)
         {
             var partitionKey = GetHistoryPartitionKey(category, address);
 

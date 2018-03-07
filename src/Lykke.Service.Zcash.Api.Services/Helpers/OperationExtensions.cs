@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 using Lykke.Service.Zcash.Api.Services.Models;
 
 namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
@@ -16,7 +17,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
                     {
                         new RawTransactionAction
                         {
-                            Category = ObservationCategory.From,
+                            Category = HistoryAddressCategory.From,
                             Amount = item.Amount,
                             AssetId = self.AssetId,
                             FromAddress = item.FromAddress,
@@ -24,7 +25,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
                         },
                         new RawTransactionAction
                         {
-                            Category = ObservationCategory.To,
+                            Category = HistoryAddressCategory.To,
                             Amount = item.Amount,
                             AssetId = self.AssetId,
                             FromAddress = item.FromAddress,

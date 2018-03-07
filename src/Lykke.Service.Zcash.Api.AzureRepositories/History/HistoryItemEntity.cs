@@ -2,7 +2,6 @@
 using Lykke.AzureStorage.Tables;
 using Lykke.AzureStorage.Tables.Entity.Annotation;
 using Lykke.AzureStorage.Tables.Entity.ValueTypesMerging;
-using Lykke.Service.Zcash.Api.Core.Domain;
 using Lykke.Service.Zcash.Api.Core.Domain.History;
 
 namespace Lykke.Service.Zcash.Api.AzureRepositories.History
@@ -12,12 +11,6 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.History
     {
         public HistoryItemEntity()
         {
-        }
-
-        public HistoryItemEntity(string partitionKey, string rowKey)
-        {
-            PartitionKey = partitionKey;
-            RowKey = rowKey;
         }
 
         public Guid? OperationId { get; set; }

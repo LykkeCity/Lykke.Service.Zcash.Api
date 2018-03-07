@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
+using Lykke.Service.Zcash.Api.Core;
+using Lykke.Service.Zcash.Api.Core.Domain.History;
 
-namespace Lykke.Service.Zcash.Api.Core.Domain.History
+namespace Lykke.Service.Zcash.Api.Helpers
 {
     public static class HistoryExtensions
     {

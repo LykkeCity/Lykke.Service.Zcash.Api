@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Lykke.Service.BlockchainApi.Contract.Common;
+﻿using Lykke.Service.BlockchainApi.Contract.Common;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Lykke.Service.Zcash.Api.Controllers

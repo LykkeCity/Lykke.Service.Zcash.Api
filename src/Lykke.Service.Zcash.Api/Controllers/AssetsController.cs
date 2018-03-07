@@ -1,14 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Linq;
+﻿using System.Linq;
 using Lykke.Common.Api.Contract.Responses;
-using Lykke.Common.ApiLibrary.Contract;
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Assets;
 using Lykke.Service.Zcash.Api.Core;
-using Lykke.Service.Zcash.Api.Core.Domain;
+using Lykke.Service.Zcash.Api.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Lykke.Service.Zcash.Api.Controllers
 {
@@ -22,8 +19,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             [FromQuery]string continuation,
             [FromQuery]int take)
         {
-            if (!ModelState.IsValid ||
-                !ModelState.IsValidContinuation(continuation))
+            if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }

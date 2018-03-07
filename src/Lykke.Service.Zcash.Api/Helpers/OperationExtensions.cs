@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Linq;
-using Common;
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
-using NBitcoin;
+using Lykke.Service.Zcash.Api.Core;
+using Lykke.Service.Zcash.Api.Core.Domain.Operations;
 
-namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
+namespace Lykke.Service.Zcash.Api.Helpers
 {
     public static class OperationExtensions
     {

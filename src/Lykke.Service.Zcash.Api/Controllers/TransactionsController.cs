@@ -3,18 +3,16 @@ using System.Linq;
 using System.Threading.Tasks;
 using Common;
 using Lykke.Common.Api.Contract.Responses;
-using Lykke.Common.ApiLibrary.Contract;
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
 using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain;
-using Lykke.Service.Zcash.Api.Core.Domain.History;
+using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 using Lykke.Service.Zcash.Api.Core.Domain.Operations;
 using Lykke.Service.Zcash.Api.Core.Services;
-using Lykke.Service.Zcash.Api.Models;
+using Lykke.Service.Zcash.Api.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 using NBitcoin;
 
 namespace Lykke.Service.Zcash.Api.Controllers
@@ -152,7 +150,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
                     ErrorResponse.Create("Transaction must be built beforehand by Zcash API (to be successfully broadcasted then)"));
             }
 
-            if (operation != null && operation.State != OperationState.Built)
+            if (operation.State != OperationState.Built)
             {
                 return StatusCode(StatusCodes.Status409Conflict,
                     ErrorResponse.Create($"Operation is already {Enum.GetName(typeof(OperationState), operation.State).ToLower()}"));
@@ -209,16 +207,16 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Observe(
-            [FromRoute]HistoryObservationCategory category,
+            [FromRoute]HistoryAddressCategory category,
             [FromRoute]string address)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(ref address))
+                !ModelState.IsValidAddress(address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
-            if (await _blockchainService.TryCreateObservableAddressAsync((ObservationCategory)category, address))
+            if (await _blockchainService.TryCreateHistoryAddressAsync(address, category))
                 return Ok();
             else
                 return StatusCode(StatusCodes.Status409Conflict);
@@ -229,16 +227,16 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> DeleteObservation(
-            [FromRoute]HistoryObservationCategory category,
+            [FromRoute]HistoryAddressCategory category,
             [FromRoute]string address)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(ref address))
+                !ModelState.IsValidAddress(address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
-            if (await _blockchainService.TryDeleteObservableAddressAsync((ObservationCategory)category, address))
+            if (await _blockchainService.TryDeleteHistoryAddressAsync(address, category))
                 return Ok();
             else
                 return NoContent();
@@ -248,18 +246,18 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(HistoricalTransactionContract[]))]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> GetHistory(
-            [FromRoute]HistoryObservationCategory category,
+            [FromRoute]HistoryAddressCategory category,
             [FromRoute]string address,
             [FromQuery]string afterHash,
             [FromQuery]int take)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(ref address))
+                !ModelState.IsValidAddress(address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
-            var txs = await _blockchainService.GetHistoryAsync((ObservationCategory)category, address, afterHash, take);
+            var txs = await _blockchainService.GetHistoryAsync(category, address, afterHash, take);
 
             return Ok(txs
                 .Select(tx => tx.ToHistoricalContract())

@@ -1,16 +1,13 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using System.Threading.Tasks;
 using Lykke.Common.Api.Contract.Responses;
-using Lykke.Common.ApiLibrary.Contract;
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Balances;
 using Lykke.Service.Zcash.Api.Core.Domain;
-using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 using Lykke.Service.Zcash.Api.Core.Services;
+using Lykke.Service.Zcash.Api.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Lykke.Service.Zcash.Api.Controllers
 {
@@ -31,8 +28,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             [FromQuery]string continuation,
             [FromQuery]int take)
         {
-            if (!ModelState.IsValid ||
-                !ModelState.IsValidContinuation(continuation))
+            if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -51,12 +47,12 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public async Task<IActionResult> Create([FromRoute]string address)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(ref address))
+                !ModelState.IsValidAddress(address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
-            if (await _blockchainService.TryCreateObservableAddressAsync(ObservationCategory.Balance, address))
+            if (await _blockchainService.TryCreateBalanceAddressAsync(address))
                 return Ok();
             else
                 return StatusCode(StatusCodes.Status409Conflict);
@@ -69,12 +65,12 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public async Task<IActionResult> Delete([FromRoute]string address)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(ref address))
+                !ModelState.IsValidAddress(address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
-            if (await _blockchainService.TryDeleteObservableAddressAsync(ObservationCategory.Balance, address))
+            if (await _blockchainService.TryDeleteBalanceAddressAsync(address))
                 return Ok();
             else
                 return NoContent();

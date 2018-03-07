@@ -6,21 +6,17 @@ using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
 using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain;
-using Lykke.Service.Zcash.Api.Core.Services;
-using Microsoft.WindowsAzure.Storage.Table;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using NBitcoin;
 using NBitcoin.JsonConverters;
-using Newtonsoft.Json;
 using CoreUtils = Lykke.Service.Zcash.Api.Core.Utils;
 
-namespace Microsoft.AspNetCore.Mvc.ModelBinding
+namespace Lykke.Service.Zcash.Api.Helpers
 {
     public static class ModelStateExtensions
     {
-        public static bool IsValidAddress(this ModelStateDictionary self, ref string address)
+        public static bool IsValidAddress(this ModelStateDictionary self, string address)
         {
-            address = address.Trim();
-
             if (CoreUtils.ValidateAddress(address, out var _))
             {
                 return true;
@@ -28,25 +24,6 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
             else
             {
                 self.AddModelError(nameof(address), "Address must be a valid Zcash transparent (t-) address");
-                return false;
-            }
-        }
-
-        public static bool IsValidContinuation(this ModelStateDictionary self, string continuation)
-        {
-            if (string.IsNullOrEmpty(continuation))
-            {
-                return true;
-            }
-
-            try
-            {
-                JsonConvert.DeserializeObject<TableContinuationToken>(Common.Utils.HexToString(continuation));
-                return true;
-            }
-            catch
-            {
-                self.AddModelError("continuation", "Invalid continuation token");
                 return false;
             }
         }

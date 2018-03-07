@@ -1,5 +1,6 @@
 ﻿using System;
 using Lykke.Service.Zcash.Api.Core.Domain;
+using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 using Lykke.Service.Zcash.Api.Core.Domain.History;
 using Lykke.Service.Zcash.Api.Core.Domain.Operations;
 
@@ -7,7 +8,7 @@ namespace Lykke.Service.Zcash.Api.Services.Models
 {
     public class RawTransactionAction
     {
-        public ObservationCategory Category { get; set; }
+        public HistoryAddressCategory Category { get; set; }
         public string FromAddress { get; set; }
         public string ToAddress { get; set; }
         public string AssetId { get; set; }
@@ -18,8 +19,8 @@ namespace Lykke.Service.Zcash.Api.Services.Models
             get
             {
                 return
-                    Category == ObservationCategory.From ? FromAddress :
-                    Category == ObservationCategory.To ? ToAddress :
+                    Category == HistoryAddressCategory.From ? FromAddress :
+                    Category == HistoryAddressCategory.To ? ToAddress :
                     throw new InvalidOperationException("Invalid transaction action category");
             }
         }

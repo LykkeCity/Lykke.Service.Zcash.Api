@@ -47,11 +47,6 @@ namespace Lykke.Service.Zcash.Api.Services
             _settings = settings;
         }
 
-        public bool ValidateAddress(string address)
-        {
-            return Core.Utils.ValidateAddress(address, out var _);
-        }
-
         public void EnsureSigned(Transaction transaction, ICoin[] coins)
         {
             // checking fees or dust thresholds doesn't make sense here because 
@@ -256,7 +251,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
                 foreach (var action in transactionActions)
                 {
-                    if (await IsObservableAsync(action.Category, action.AffectedAddress))
+                    if (await _addressRepository.IsHistoryAddressExistsAsync(action.AffectedAddress, action.Category))
                     {
                         await _historyRepository.UpsertAsync(action.Category, action.AffectedAddress, transaction.TimestampUtc, transaction.Hash,
                             operation?.OperationId, action.FromAddress, action.ToAddress, action.Amount, action.AssetId);
@@ -273,9 +268,9 @@ namespace Lykke.Service.Zcash.Api.Services
                 $"History handled. {recorded} of {recent.Transactions.Length} recorded");
         }
 
-        public async Task<IEnumerable<IHistoryItem>> GetHistoryAsync(ObservationCategory category, string address, string afterHash = null, int take = 100)
+        public async Task<IEnumerable<IHistoryItem>> GetHistoryAsync(HistoryAddressCategory category, string address, string afterHash = null, int take = 100)
         {
-            if (await IsObservableAsync(category, address))
+            if (await _addressRepository.IsHistoryAddressExistsAsync(address, category))
             {
                 return await _historyRepository.GetByAddressAsync(category, address, afterHash, take);
             }
@@ -289,11 +284,11 @@ namespace Lykke.Service.Zcash.Api.Services
         {
             var settings = await LoadStoredSettingsAsync();
             var balances = new List<AddressBalance>();
-            var addressQuery = await _addressRepository.GetByCategoryAsync(ObservationCategory.Balance, continuation, take);
+            var addressQuery = await _addressRepository.GetBalanceAddressesChunkAsync(continuation, take);
 
             if (addressQuery.items.Any())
             {
-                var utxo = await _blockchainReader.ListUnspentAsync(settings.ConfirmationLevel, addressQuery.items.Select(x => x.Address).ToArray());
+                var utxo = await _blockchainReader.ListUnspentAsync(settings.ConfirmationLevel, addressQuery.items.ToArray());
 
                 foreach (var group in utxo.GroupBy(x => x.Address))
                 {
@@ -320,62 +315,28 @@ namespace Lykke.Service.Zcash.Api.Services
             return (addressQuery.continuation, balances);
         }
 
-        public async Task<bool> TryCreateObservableAddressAsync(ObservationCategory category, string address)
+        public async Task<bool> TryCreateBalanceAddressAsync(string address)
         {
-            var addressInfo = await _blockchainReader.ValidateAddressAsync(address);
+            await ImportAddress(address);
 
-            if (!addressInfo.IsValid)
-            {
-                throw new InvalidOperationException($"Invalid Zcash address: {address}");
-            }
-
-            if (!addressInfo.IsMine && !addressInfo.IsWatchOnly)
-            {
-                await _blockchainReader.ImportAddressAsync(address);
-            }
-
-            var observableAddress = await _addressRepository.GetAsync(category, address);
-
-            if (observableAddress == null)
-            {
-                await _addressRepository.CreateAsync(category, address);
-                return true;
-            }
-
-            return false;
+            return await _addressRepository.CreateBalanceAddressIfNotExistsAsync(address);
         }
 
-        public async Task<bool> TryDeleteObservableAddressAsync(ObservationCategory category, string address)
+        public async Task<bool> TryDeleteBalanceAddressAsync(string address)
         {
-            var observableAddress = await _addressRepository.GetAsync(category, address);
-
-            if (observableAddress != null)
-            {
-                await _addressRepository.DeleteAsync(category, address);
-                return true;
-            }
-
-            return false;
+            return await _addressRepository.DeleteBalanceAddressIfExistsAsync(address);
         }
 
-        public async Task<bool> IsObservableAsync(ObservationCategory category, string address)
+        public async Task<bool> TryCreateHistoryAddressAsync(string address, HistoryAddressCategory category)
         {
-            return (await _addressRepository.GetAsync(category, address)) != null;
+            await ImportAddress(address);
+
+            return await _addressRepository.CreateHistoryAddressIfNotExistsAsync(address, category);
         }
 
-        public async Task ImportAllObservableAddressesAsync()
+        public async Task<bool> TryDeleteHistoryAddressAsync(string address, HistoryAddressCategory category)
         {
-            // zcash doesn't support "importmulti" command,
-            // so we had to import one-by-one
-
-            var addresses = (await _addressRepository.GetAllAsync())
-                .Select(a => a.Address)
-                .ToHashSet();
-
-            foreach (var address in addresses)
-            {
-                await _blockchainReader.ImportAddressAsync(address);
-            }
+            return await _addressRepository.DeleteHistoryAddressIfExistsAsync(address, category);
         }
 
         public async Task<ISettings> LoadStoredSettingsAsync()
@@ -388,6 +349,21 @@ namespace Lykke.Service.Zcash.Api.Services
             _settings.LastBlockHash = blockHash;
 
             await _settingsRepository.UpsertAsync(_settings);
+        }
+
+        public async Task ImportAddress(string address)
+        {
+            var addressInfo = await _blockchainReader.ValidateAddressAsync(address);
+
+            if (!addressInfo.IsValid)
+            {
+                throw new InvalidOperationException($"Invalid Zcash address: {address}");
+            }
+
+            if (!addressInfo.IsMine && !addressInfo.IsWatchOnly)
+            {
+                await _blockchainReader.ImportAddressAsync(address);
+            }
         }
 
         public async Task<RawTransaction> GetRawTransactionAsync(string transactionHash, bool restoreInputs = true)

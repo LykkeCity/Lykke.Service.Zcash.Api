@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Lykke.Service.Zcash.Api.Core.Domain;
+using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 
 namespace Lykke.Service.Zcash.Api.Services.Models
 {
@@ -22,7 +23,7 @@ namespace Lykke.Service.Zcash.Api.Services.Models
                 group item by addr into g
                 select new RawTransactionAction
                 {
-                    Category = ObservationCategory.From,
+                    Category = HistoryAddressCategory.From,
                     FromAddress = g.Key,
                     AssetId = Asset.Zec.Id,
                     Amount = g.Sum(v => v.Value)
@@ -37,7 +38,7 @@ namespace Lykke.Service.Zcash.Api.Services.Models
                 group item by addr into g
                 select new RawTransactionAction
                 {
-                    Category = ObservationCategory.To,
+                    Category = HistoryAddressCategory.To,
                     ToAddress = g.Key,
                     AssetId = Asset.Zec.Id,
                     Amount = g.Sum(v => v.Value)

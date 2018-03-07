@@ -1,6 +1,7 @@
 ﻿using Lykke.Service.BlockchainApi.Contract.Assets;
+using Lykke.Service.Zcash.Api.Core.Domain;
 
-namespace Lykke.Service.Zcash.Api.Core.Domain
+namespace Lykke.Service.Zcash.Api.Helpers
 {
     public static class AssetExtensions
     {
