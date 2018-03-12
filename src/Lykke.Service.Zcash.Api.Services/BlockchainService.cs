@@ -315,6 +315,21 @@ namespace Lykke.Service.Zcash.Api.Services
             return (addressQuery.continuation, balances);
         }
 
+        public async Task<(string continuation, IEnumerable<string> items)> GetObservableAddressesAsync(AddressType type, string continuation = null, int take = 100)
+        {
+            switch (type)
+            {
+                case AddressType.Balance:
+                    return await _addressRepository.GetBalanceAddressesChunkAsync(continuation, take);
+
+                case AddressType.History:
+                    return await _addressRepository.GetHistoryAddressesChunkAsync(continuation, take);
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type));
+            }
+        }
+
         public async Task<bool> TryCreateBalanceAddressAsync(string address)
         {
             await ImportAddress(address);
@@ -425,5 +440,6 @@ namespace Lykke.Service.Zcash.Api.Services
 
             return Money.FromUnit(decimalResult, unit);
         }
+
     }
 }
