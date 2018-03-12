@@ -4,7 +4,7 @@ using Common;
 using Common.Log;
 using Lykke.Service.Zcash.Api.Core.Services;
 
-namespace Lykke.Service.Zcash.Api.PeriodicalHandlers
+namespace Lykke.Job.Zcash.PeriodicalHandlers
 {
     public class HistoryHandler : TimerPeriod
     {
