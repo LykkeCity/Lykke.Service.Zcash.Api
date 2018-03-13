@@ -48,7 +48,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             return Ok(PaginationResponse.From(result.continuation, result.items.ToArray()));
         }
 
-        [HttpPost]
+        [HttpPost("import")]
         public async Task Import([FromBody]string[] addresses)
         {
             foreach (var addr in addresses)
