@@ -25,6 +25,8 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 
         Task<(string continuation, IEnumerable<AddressBalance> items)> GetBalancesAsync(string continuation = null, int take = 100);
 
+        Task<(string continuation, IEnumerable<string> items)> GetObservableAddressesAsync(AddressType type, string continuation = null, int take = 100);
+
         Task<bool> TryDeleteBalanceAddressAsync(string address);
 
         Task<bool> TryCreateBalanceAddressAsync(string address);
@@ -32,6 +34,8 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         Task<bool> TryDeleteHistoryAddressAsync(string address, HistoryAddressCategory category);
 
         Task<bool> TryCreateHistoryAddressAsync(string address, HistoryAddressCategory category);
+
+        Task ImportAddress(string address);
 
         void EnsureSigned(Transaction transaction, ICoin[] coins);
     }
