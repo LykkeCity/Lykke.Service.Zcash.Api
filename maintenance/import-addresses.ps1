@@ -24,7 +24,7 @@ function import([string]$url, [string]$type, [int]$take)
 
         $continuation = $chunk.continuation
         
-        Write-Host "`r$count $type addresses imported" -NoNewlineS
+        Write-Host "`r$count $type addresses imported" -NoNewline
     }
     while(($continuation -ne $null) -and ($continuation -ne ''))
 
