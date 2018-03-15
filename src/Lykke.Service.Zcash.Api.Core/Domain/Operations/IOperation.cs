@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 {
@@ -12,6 +10,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
         DateTime TimestampUtc { get; }
         DateTime BuiltUtc { get; }
         DateTime? SentUtc { get; }
+        DateTime? MinedUtc { get; }
         DateTime? CompletedUtc { get; }
         DateTime? FailedUtc { get; }
         DateTime? DeletedUtc { get; }

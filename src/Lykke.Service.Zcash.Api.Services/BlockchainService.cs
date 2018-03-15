@@ -240,7 +240,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
                 if (operation != null)
                 {
-                    await _operationRepository.UpdateAsync(operation.OperationId, completedUtc: transaction.TimestampUtc);
+                    await _operationRepository.UpdateAsync(operation.OperationId, minedUtc: transaction.TimestampUtc, completedUtc: DateTime.UtcNow);
 
                     transactionActions = operation.GetRawTransactionActions();
                 }
