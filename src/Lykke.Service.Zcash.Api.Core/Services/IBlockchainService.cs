@@ -34,5 +34,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         Task<bool> TryCreateHistoryAddressAsync(string address, HistoryAddressCategory category);
 
         void EnsureSigned(Transaction transaction, ICoin[] coins);
+
+        string[] GetExplorerUrl(string address);
     }
 }

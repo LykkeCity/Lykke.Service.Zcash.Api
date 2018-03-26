@@ -1,5 +1,6 @@
 ﻿using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Addresses;
+using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +12,11 @@ namespace Lykke.Service.Zcash.Api.Controllers
     [Route("/api/addresses")]
     public class AddressesController : Controller
     {
-        private Network _network;
+        private readonly IBlockchainService _blockchainService;
 
-        public AddressesController(Network network)
+        public AddressesController(IBlockchainService blockchainService)
         {
-            _network = network;
+            _blockchainService = blockchainService;
         }
 
         [HttpGet("{address}/validity")]
@@ -38,22 +39,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
 
-            if (_network == ZcashNetworks.Mainnet)
-            {
-                return Ok(new[] 
-                {
-                    $"https://explorer.zcha.in/accounts/{address}",
-                    $"https://zcash.blockexplorer.com/address/{address}",
-                    $"https://zcashnetwork.info/address/{address}"
-                });
-            }
-            else
-            {
-                return Ok(new[] 
-                {
-                    $"https://explorer.testnet.z.cash/address/{address}"
-                });
-            }
+            return Ok(_blockchainService.GetExplorerUrl(address));
         }
     }
 }

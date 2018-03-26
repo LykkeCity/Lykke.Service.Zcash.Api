@@ -19,5 +19,11 @@ namespace Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings
 
         [Optional]
         public bool SkipNodeCheck { get; set; }
+
+        [Optional]
+        public string[] MainNetExplorerAddressUrls { get; set; }
+
+        [Optional]
+        public string[] TestNetExplorerAddressUrls { get; set; }
     }
 }
