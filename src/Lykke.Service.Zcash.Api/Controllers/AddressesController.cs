@@ -4,8 +4,6 @@ using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using NBitcoin;
-using NBitcoin.Zcash;
 
 namespace Lykke.Service.Zcash.Api.Controllers
 {
