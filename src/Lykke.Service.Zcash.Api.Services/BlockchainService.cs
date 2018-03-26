@@ -16,6 +16,7 @@ using Lykke.Service.Zcash.Api.Services.Models;
 using NBitcoin;
 using NBitcoin.JsonConverters;
 using NBitcoin.Policy;
+using NBitcoin.Zcash;
 
 namespace Lykke.Service.Zcash.Api.Services
 {
@@ -441,5 +442,29 @@ namespace Lykke.Service.Zcash.Api.Services
             return Money.FromUnit(decimalResult, unit);
         }
 
+        public string[] GetExplorerUrl(string address)
+        {
+            if (_settings.NetworkType == ZcashNetworks.Mainnet.Name)
+            {
+                return 
+                    _settings.MainNetExplorerAddressUrls?.Select(url => string.Format(url, address))?.ToArray() ??
+                    new string[]
+                    {
+                        $"https://explorer.zcha.in/accounts/{address}"
+                    };
+            }
+
+            if (_settings.NetworkType == ZcashNetworks.Testnet.Name)
+            {
+                return
+                    _settings.TestNetExplorerAddressUrls?.Select(url => string.Format(url, address))?.ToArray() ??
+                    new string[]
+                    {
+                        $"https://explorer.testnet.z.cash/address/{address}"
+                    };
+            }
+
+            return new string[0];
+        }
     }
 }

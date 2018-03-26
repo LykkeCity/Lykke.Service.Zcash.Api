@@ -38,5 +38,7 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         Task ImportAddress(string address);
 
         void EnsureSigned(Transaction transaction, ICoin[] coins);
+
+        string[] GetExplorerUrl(string address);
     }
 }

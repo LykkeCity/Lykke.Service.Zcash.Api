@@ -22,7 +22,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         }
 
         [HttpGet("{address}/validity")]
-        public AddressValidationResponse IsValid(string address)
+        public AddressValidationResponse IsValid([FromRoute]string address)
         {
             return new AddressValidationResponse()
             {
@@ -55,6 +55,20 @@ namespace Lykke.Service.Zcash.Api.Controllers
             {
                 await _blockchainService.ImportAddress(addr);
             }
+        }
+
+        [HttpGet("{address}/explorer-url")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(string[]))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(BlockchainErrorResponse))]
+        public IActionResult ExplorerUrl([FromRoute]string address)
+        {
+            if (!ModelState.IsValid ||
+                !ModelState.IsValidAddress(address))
+            {
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
+            }
+
+            return Ok(_blockchainService.GetExplorerUrl(address));
         }
     }
 }
