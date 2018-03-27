@@ -1,13 +1,15 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
+using Common;
 using Lykke.Common.Api.Contract.Responses;
 using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Balances;
-using Lykke.Service.Zcash.Api.Core.Domain;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.WindowsAzure.Storage.Table;
+using Newtonsoft.Json;
 
 namespace Lykke.Service.Zcash.Api.Controllers
 {
@@ -28,6 +30,26 @@ namespace Lykke.Service.Zcash.Api.Controllers
             [FromQuery]string continuation,
             [FromQuery]int take)
         {
+            // until ASP.NET Core 2.1 data annotations on arguments do not work
+            if (take <= 0)
+            {
+                ModelState.AddModelError(nameof(take), "Must be greater than zero");
+            }
+
+            // kinda specific knowledge but there is no 
+            // another way to ensure continuation token
+            if (!string.IsNullOrEmpty(continuation))
+            {
+                try
+                {
+                    JsonConvert.DeserializeObject<TableContinuationToken>(Utils.HexToString(continuation));
+                }
+                catch
+                {
+                    ModelState.AddModelError(nameof(continuation), "Invalid continuation token");
+                }
+            }
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
