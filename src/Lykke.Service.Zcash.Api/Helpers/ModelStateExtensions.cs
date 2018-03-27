@@ -23,7 +23,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
             }
             else
             {
-                self.AddModelError(nameof(address), "Address must be a valid Zcash transparent (t-) address");
+                self.AddModelError(nameof(address), $"{address} is not a valid Zcash transparent (t-) address");
                 return false;
             }
         }
