@@ -13,7 +13,6 @@ using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using NBitcoin;
 
 namespace Lykke.Service.Zcash.Api.Controllers
 {
@@ -28,7 +27,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         }
 
         [NonAction]
-        public async Task<IActionResult> Build(Guid operationId, OperationType type, Asset asset, bool subtractFees, params (BitcoinAddress from, BitcoinAddress to, Money amount)[] items)
+        public async Task<IActionResult> Build(Guid operationId, OperationType type, Asset asset, bool subtractFees, params (string from, string to, decimal amount)[] items)
         {
             var operation = await _blockchainService.GetOperationAsync(operationId, loadItems: false);
 
@@ -38,25 +37,20 @@ namespace Lykke.Service.Zcash.Api.Controllers
                     ErrorResponse.Create($"Operation is already {Enum.GetName(typeof(OperationState), operation.State).ToLower()}"));
             }
 
-            var signContext = string.Empty;
-
             try
             {
-                signContext = await _blockchainService.BuildAsync(operationId, OperationType.SingleFromSingleTo, asset, subtractFees, items);
-            }
-            catch (DustException)
-            {
-                return BadRequest(BlockchainErrorResponse.FromKnownError(BlockchainErrorCode.AmountIsTooSmall));
-            }
-            catch (NotEnoughFundsException)
-            {
-                return BadRequest(BlockchainErrorResponse.FromKnownError(BlockchainErrorCode.NotEnoughtBalance));
-            }
+                var signContext = await _blockchainService.BuildAsync(operationId, OperationType.SingleFromSingleTo, asset, subtractFees, items);
 
-            return Ok(new BuildTransactionResponse
+                return Ok(new BuildTransactionResponse
+                {
+                    TransactionContext = signContext.context.ToBase64()
+                });
+            }
+            catch (BuildTransactionException ex)
             {
-                TransactionContext = signContext.ToBase64()
-            });
+                return BadRequest(BlockchainErrorResponse.FromKnownError(ex.Error == BuildTransactionException.ErrorCode.Dust ? 
+                    BlockchainErrorCode.AmountIsTooSmall : BlockchainErrorCode.NotEnoughtBalance));
+            }
         }
 
         [NonAction]
@@ -82,7 +76,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public async Task<IActionResult> Build([FromBody]BuildSingleTransactionRequest request)
         {
             if (!ModelState.IsValid || 
-                !ModelState.IsValidRequest(request, out var items, out var asset))
+                !ModelState.IsValidRequest(request, _blockchainService, out var items, out var asset))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -97,7 +91,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public async Task<IActionResult> Build([FromBody]BuildTransactionWithManyInputsRequest request)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidRequest(request, out var items, out var asset))
+                !ModelState.IsValidRequest(request, _blockchainService, out var items, out var asset))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -112,7 +106,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public async Task<IActionResult> Build([FromBody]BuildTransactionWithManyOutputsRequest request)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidRequest(request, out var items, out var asset))
+                !ModelState.IsValidRequest(request, _blockchainService, out var items, out var asset))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -135,12 +129,10 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public async Task<IActionResult> Broadcast([FromBody]BroadcastTransactionRequest request)
         {
             if (!ModelState.IsValid || 
-                !ModelState.IsValidRequest(request, out var transaction, out var coins))
+                !ModelState.IsValidRequest(request, _blockchainService))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
-
-            _blockchainService.EnsureSigned(transaction, coins);
 
             var operation = await _blockchainService.GetOperationAsync(request.OperationId, false);
 
@@ -156,7 +148,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
                     ErrorResponse.Create($"Operation is already {Enum.GetName(typeof(OperationState), operation.State).ToLower()}"));
             }
 
-            await _blockchainService.BroadcastAsync(operation.OperationId, transaction);
+            await _blockchainService.BroadcastAsync(operation.OperationId, request.SignedTransaction);
             
             return Ok();
         }
@@ -211,7 +203,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             [FromRoute]string address)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(address))
+                !ModelState.IsValidAddress(_blockchainService, address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -231,7 +223,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             [FromRoute]string address)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(address))
+                !ModelState.IsValidAddress(_blockchainService, address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -252,7 +244,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             [FromQuery]int take)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(address))
+                !ModelState.IsValidAddress(_blockchainService, address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }

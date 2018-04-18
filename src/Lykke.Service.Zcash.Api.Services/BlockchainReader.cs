@@ -1,11 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using Common.Log;
-using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
 using Lykke.Service.Zcash.Api.Services.Models;
-using NBitcoin;
 using NBitcoin.RPC;
 using Newtonsoft.Json;
 
@@ -32,9 +28,9 @@ namespace Lykke.Service.Zcash.Api.Services
             return await SendRpcAsync<RawTransaction>(RPCOperations.getrawtransaction, hash, 1);
         }
 
-        public async Task<string> SendRawTransactionAsync(Transaction transaction)
+        public async Task<string> SendRawTransactionAsync(string transaction)
         {
-            return (await SendRpcAsync(RPCOperations.sendrawtransaction, transaction.ToHex())).ResultString;
+            return (await SendRpcAsync(RPCOperations.sendrawtransaction, transaction)).ResultString;
         }
 
         public async Task<RecentResult> ListSinceBlockAsync(string lastBlockHash, int confirmationLevel)
@@ -57,13 +53,29 @@ namespace Lykke.Service.Zcash.Api.Services
             return await SendRpcAsync<string[]>(RPCOperations.getaddressesbyaccount, string.Empty);
         }
 
+        public async Task<Info> GetInfo()
+        {
+            return await SendRpcAsync<Info>(RPCOperations.getinfo);
+        }
+
+        public async Task<string> CreateRawTransaction(Utxo[] inputs, Dictionary<string, decimal> outputs)
+        {
+            return (await SendRpcAsync(RPCOperations.createrawtransaction, inputs, outputs)).ResultString;
+        }
+
+        public async Task<RawTransaction> DecodeRawTransaction(string transaction)
+        {
+            return await SendRpcAsync<RawTransaction>(RPCOperations.decoderawtransaction, transaction);
+        }
+
         public async Task<T> SendRpcAsync<T>(RPCOperations command, params object[] parameters)
         {
-            var result = await _rpcClient.SendCommandAsync(command, parameters);
+            var result = await _rpcClient.SendCommandAsync(command, parameters).ConfigureAwait(false);
 
             result.ThrowIfError();
 
-            // NBitcoin can not deserialize shielded tx data,
+            // starting from Overwinter update NBitcoin can not deserialize Zcash transaparent transactions,
+            // as well as it has never been able to work with shielded Zcash transactions,
             // that's why custom models are used widely instead of built-in NBitcoin commands;
             // additionaly in case of exception we save context to investigate later:
 
@@ -73,14 +85,14 @@ namespace Lykke.Service.Zcash.Api.Services
             }
             catch (JsonSerializationException jex)
             {
-                await _log.WriteErrorAsync(nameof(SendRpcAsync), $"Command: {command}, Response: {result.ResultString}", jex);
+                await _log.WriteErrorAsync(nameof(SendRpcAsync), $"Command: {command}, Response: {result.ResultString}", jex).ConfigureAwait(false);
                 throw;
             }
         }
 
         public async Task<RPCResponse> SendRpcAsync(RPCOperations command, params object[] parameters)
         {
-            var result = await _rpcClient.SendCommandAsync(new RPCRequest(command, parameters), false);
+            var result = await _rpcClient.SendCommandAsync(new RPCRequest(command, parameters), false).ConfigureAwait(false);
 
             result.ThrowIfError();
 

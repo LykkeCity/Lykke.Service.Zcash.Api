@@ -47,7 +47,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public async Task<IActionResult> Create([FromRoute]string address)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(address))
+                !ModelState.IsValidAddress(_blockchainService, address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -65,7 +65,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public async Task<IActionResult> Delete([FromRoute]string address)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(address))
+                !ModelState.IsValidAddress(_blockchainService, address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }

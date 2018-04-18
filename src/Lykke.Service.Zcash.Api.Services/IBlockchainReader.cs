@@ -1,6 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using Lykke.Service.Zcash.Api.Services.Models;
-using NBitcoin;
 
 namespace Lykke.Service.Zcash.Api.Services
 {
@@ -10,8 +10,11 @@ namespace Lykke.Service.Zcash.Api.Services
         Task<Utxo[]> ListUnspentAsync(int confirmationLevel, params string[] addresses);
         Task ImportAddressAsync(string address);
         Task<RecentResult> ListSinceBlockAsync(string lastBlockHash, int confirmationLevel);
-        Task<string> SendRawTransactionAsync(Transaction transaction);
+        Task<string> SendRawTransactionAsync(string transaction);
         Task<AddressInfo> ValidateAddressAsync(string address);
         Task<string[]> GetAddresssesAsync();
+        Task<Info> GetInfo();
+        Task<string> CreateRawTransaction(Utxo[] inputs, Dictionary<string, decimal> outputs);
+        Task<RawTransaction> DecodeRawTransaction(string transaction);
     }
 }
