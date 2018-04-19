@@ -1,9 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Common.Log;
 using Lykke.Service.Zcash.Api.Services.Models;
 using NBitcoin.RPC;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Lykke.Service.Zcash.Api.Services
 {
@@ -60,7 +63,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<string> CreateRawTransaction(Utxo[] inputs, Dictionary<string, decimal> outputs)
         {
-            return (await SendRpcAsync(RPCOperations.createrawtransaction, inputs, outputs)).ResultString;
+            return (await SendRpcAsync(RPCOperations.createrawtransaction, JArray.FromObject(inputs), JObject.FromObject(outputs))).ResultString;
         }
 
         public async Task<RawTransaction> DecodeRawTransaction(string transaction)
@@ -70,7 +73,8 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<T> SendRpcAsync<T>(RPCOperations command, params object[] parameters)
         {
-            var result = await _rpcClient.SendCommandAsync(command, parameters).ConfigureAwait(false);
+            var result = await _rpcClient.SendCommandAsync(command, parameters)
+                .ConfigureAwait(false);
 
             result.ThrowIfError();
 
@@ -85,14 +89,17 @@ namespace Lykke.Service.Zcash.Api.Services
             }
             catch (JsonSerializationException jex)
             {
-                await _log.WriteErrorAsync(nameof(SendRpcAsync), $"Command: {command}, Response: {result.ResultString}", jex).ConfigureAwait(false);
+                await _log.WriteErrorAsync(nameof(SendRpcAsync), $"Command: {command}, Response: {result.ResultString}", jex)
+                    .ConfigureAwait(false);
+
                 throw;
             }
         }
 
         public async Task<RPCResponse> SendRpcAsync(RPCOperations command, params object[] parameters)
         {
-            var result = await _rpcClient.SendCommandAsync(new RPCRequest(command, parameters), false).ConfigureAwait(false);
+            var result = await _rpcClient.SendCommandAsync(new RPCRequest(command, parameters), false)
+                .ConfigureAwait(false);
 
             result.ThrowIfError();
 

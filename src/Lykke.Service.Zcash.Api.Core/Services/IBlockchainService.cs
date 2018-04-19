@@ -35,6 +35,6 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 
         Task<bool> ValidateAddressAsync(string address);
 
-        Task<bool> ValidateTransactionAsync(string transaction);
+        Task<bool> ValidateSignedTransactionAsync(string transaction);
     }
 }

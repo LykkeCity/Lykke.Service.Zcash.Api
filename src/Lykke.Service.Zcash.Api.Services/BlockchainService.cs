@@ -383,9 +383,12 @@ namespace Lykke.Service.Zcash.Api.Services
             return (await _blockchainReader.ValidateAddressAsync(address)).IsValid;
         }
 
-        public async Task<bool> ValidateTransactionAsync(string transaction)
+        public async Task<bool> ValidateSignedTransactionAsync(string transaction)
         {
-            return (await _blockchainReader.DecodeRawTransaction(transaction)) != null;
+            var tx = await _blockchainReader.DecodeRawTransaction(transaction);
+
+            return tx != null && 
+                tx.Vin.All(vin => vin.ScriptSig != null && !string.IsNullOrEmpty(vin.ScriptSig.Asm) && !string.IsNullOrEmpty(vin.ScriptSig.Hex));
         }
 
         public decimal CalcFee(int numInputs, int numOutputs, ISettings settings)
@@ -404,7 +407,7 @@ namespace Lykke.Service.Zcash.Api.Services
                 var min = settings.MinFee;
                 var max = settings.MaxFee;
 
-                return Math.Max(Math.Min(fee, max), min);
+                return Math.Round(Math.Max(Math.Min(fee, max), min), Asset.Zec.DecimalPlaces);
             }
         }
 

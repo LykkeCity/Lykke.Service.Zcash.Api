@@ -229,7 +229,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
                 return false;
             }
 
-            if (!blockchainService.ValidateTransactionAsync(request.SignedTransaction).Result)
+            if (!blockchainService.ValidateSignedTransactionAsync(request.SignedTransaction).Result)
             {
                 self.AddModelError(
                     nameof(BroadcastTransactionRequest.SignedTransaction),
