@@ -16,7 +16,6 @@ namespace Lykke.Service.Zcash.Api.Helpers
                 AssetId = self.AssetId,
                 FromAddress = self.FromAddress,
                 Hash = self.Hash,
-                OperationId = self.OperationId ?? Guid.Empty,
                 Timestamp = self.TimestampUtc,
                 ToAddress = self.ToAddress
             };
