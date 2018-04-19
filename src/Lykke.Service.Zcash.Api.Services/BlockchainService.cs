@@ -72,7 +72,6 @@ namespace Lykke.Service.Zcash.Api.Services
             var change = 
                 fromAddresses.Keys.ToDictionary(from => from, from => 0m);
 
-
             foreach (var from in fromAddresses.Keys)
             {
                 var amount = fromAddresses[from];
@@ -97,16 +96,6 @@ namespace Lykke.Service.Zcash.Api.Services
                 }
             }
 
-            foreach (var to in toAddresses.Keys)
-            {
-                // output is considered as dust if it's less than three
-                // times greater than fee required to relay this output
-                if (toAddresses[to] < 0.182m * 3 * info.RelayFee)
-                {
-                    throw new BuildTransactionException(BuildTransactionException.ErrorCode.Dust, to, toAddresses[to]);
-                }
-            }
-
             var fee = CalcFee(fromAddresses.Count, toAddresses.Count, settings);
             var totalAmount = items.Select(x => x.amount).Sum();
 
@@ -114,6 +103,7 @@ namespace Lykke.Service.Zcash.Api.Services
             {
                 foreach (var to in toAddresses.Keys.ToList())
                 {
+                    // we'll check for dust later
                     toAddresses[to] -= CalcFeeSplit(fee, totalAmount, toAddresses[to]);
                 }
             }
@@ -142,6 +132,16 @@ namespace Lykke.Service.Zcash.Api.Services
                     {
                         change[from] = spentAmount - operationAndFeeAmount;
                     }
+                }
+            }
+
+            foreach (var to in toAddresses.Keys)
+            {
+                // output is considered as dust if it's less than three
+                // times greater than fee required to relay this output
+                if (toAddresses[to] <= 0.182m * 3 * info.RelayFee)
+                {
+                    throw new BuildTransactionException(BuildTransactionException.ErrorCode.Dust, to, toAddresses[to]);
                 }
             }
 

@@ -26,6 +26,7 @@ namespace Lykke.Service.Zcash.Api.Tests
         private string depositWallet3 = "tmL4JCMEFQW2YtxQptLbBJtH6dzowHouyxw";
         private string hotWallet = "tmBh9ifoTp5keLnCcVnpLzkuMiTLMoPaYdR";
         private decimal amount = 1M;
+        private decimal relayFee = 0.000001m;
         private ZcashApiSettings settings = new ZcashApiSettings()
         {
             FeePerKb = 0.00000001M,
@@ -102,7 +103,7 @@ namespace Lykke.Service.Zcash.Api.Tests
 
             blockchainReader
                 .Setup(x => x.GetInfo())
-                .Returns(() => Task.FromResult(new Info { RelayFee = 0.000001m }));
+                .Returns(() => Task.FromResult(new Info { RelayFee = relayFee }));
 
             blockhainService = new BlockchainService(log,
                 blockchainReader.Object,
@@ -144,9 +145,10 @@ namespace Lykke.Service.Zcash.Api.Tests
             var to = hotWallet;
             var from1 = depositWallet1;
             var from2 = depositWallet2;
-            var amount1 = 1m;
-            var amount2 = 1m;
-            var halfFee = Constants.DefaultFee / 2; // due to equal amounts, for simplicity
+            var amount1 = 0.5m;
+            var amount2 = 1.5m;
+            var fee1 = Constants.DefaultFee / 4;
+            var fee2 = Constants.DefaultFee / 4 * 3;
 
             // Act
             var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from1, to, amount1), (from2, to, amount2));
@@ -156,8 +158,8 @@ namespace Lykke.Service.Zcash.Api.Tests
             // only necessary utxo are used
             Assert.Equal(2, spent.Length);
             // returns correct change and sends correct amounts
-            Assert.Contains(signContext.outputs, vout => vout.Key == from1 && vout.Value == spent.First(x => x.Address == from1).Amount - amount1 - halfFee);
-            Assert.Contains(signContext.outputs, vout => vout.Key == from2 && vout.Value == spent.First(x => x.Address == from2).Amount - amount2 - halfFee);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from1 && vout.Value == spent.First(x => x.Address == from1).Amount - amount1 - fee1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from2 && vout.Value == spent.First(x => x.Address == from2).Amount - amount2 - fee2);
             Assert.Contains(signContext.outputs, vout => vout.Key == to && vout.Value == amount1 + amount2);
         }
 
@@ -171,9 +173,10 @@ namespace Lykke.Service.Zcash.Api.Tests
             var from2 = hotWallet;
             var to1 = hotWallet;
             var to2 = depositWallet2;
-            var amount1 = 1m;
-            var amount2 = 1m;
-            var halfFee = Constants.DefaultFee / 2; // due to equal amounts, for simplicity
+            var amount1 = 0.5m; 
+            var amount2 = 1.5m;
+            var fee1 = Constants.DefaultFee / 4;
+            var fee2 = Constants.DefaultFee / 4 * 3;
 
             // Act
             var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from1, to1, amount1), (from2, to2, amount2));
@@ -184,8 +187,8 @@ namespace Lykke.Service.Zcash.Api.Tests
             Assert.Equal(2, spent.Length);
             // returns correct change and sends correct amount
             // IMPORTANT: from2 == to1, build optimizes outputs for such cases
-            Assert.Contains(signContext.outputs, vout => vout.Key == from1 && vout.Value == spent.First(x => x.Address == from1).Amount - amount1 - halfFee);
-            Assert.Contains(signContext.outputs, vout => vout.Key == from2 && vout.Value == spent.First(x => x.Address == from2).Amount - amount2 - halfFee + amount1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from1 && vout.Value == spent.First(x => x.Address == from1).Amount - amount1 - fee1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from2 && vout.Value == spent.First(x => x.Address == from2).Amount - amount2 - fee2 + amount1);
             Assert.Contains(signContext.outputs, vout => vout.Key == to2 && vout.Value == amount2);
         }
 
@@ -271,9 +274,10 @@ namespace Lykke.Service.Zcash.Api.Tests
             var from2 = hotWallet;
             var to1 = hotWallet;
             var to2 = depositWallet2;
-            var amount1 = 1m;
-            var amount2 = 1m;
-            var halfFee = Constants.DefaultFee / 2; // due to equal amounts, for simplicity
+            var amount1 = 0.5m;
+            var amount2 = 1.5m;
+            var fee1 = Constants.DefaultFee / 4;
+            var fee2 = Constants.DefaultFee / 4 * 3;
 
             // Act
             var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from1, to1, amount1), (from2, to2, amount2));
@@ -285,8 +289,8 @@ namespace Lykke.Service.Zcash.Api.Tests
             // returns correct change and sends correct amount
             // IMPORTANT: from2 == to1, build optimizes outputs for such cases
             Assert.Contains(signContext.outputs, vout => vout.Key == from1 && vout.Value == spent.First(x => x.Address == from1).Amount - amount1);
-            Assert.Contains(signContext.outputs, vout => vout.Key == from2 && vout.Value == spent.First(x => x.Address == from2).Amount - amount2 + amount1 - halfFee);
-            Assert.Contains(signContext.outputs, vout => vout.Key == to2 && vout.Value == amount2 - halfFee);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from2 && vout.Value == spent.First(x => x.Address == from2).Amount - amount2 + amount1 - fee1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == to2 && vout.Value == amount2 - fee2);
         }
 
         [Fact]
@@ -298,9 +302,10 @@ namespace Lykke.Service.Zcash.Api.Tests
             var from = hotWallet;
             var to1 = depositWallet1;
             var to2 = depositWallet2;
-            var amount1 = 1m;
-            var amount2 = 1m;
-            var halfFee = Constants.DefaultFee / 2; // due to equal amounts, for simplicity
+            var amount1 = 0.5m;
+            var amount2 = 1.5m;
+            var fee1 = Constants.DefaultFee / 4;
+            var fee2 = Constants.DefaultFee / 4 * 3;
 
             // Act
             var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to1, amount1), (from, to2, amount2));
@@ -311,8 +316,8 @@ namespace Lykke.Service.Zcash.Api.Tests
             var inputAmount = Assert.Single(spent).Amount;
             // returns correct change and sends correct amount
             Assert.Contains(signContext.outputs, vout => vout.Key == from && vout.Value == inputAmount - amount1 - amount2);
-            Assert.Contains(signContext.outputs, vout => vout.Key == to1 && vout.Value == amount1 - halfFee);
-            Assert.Contains(signContext.outputs, vout => vout.Key == to2 && vout.Value == amount2 - halfFee);
+            Assert.Contains(signContext.outputs, vout => vout.Key == to1 && vout.Value == amount1 - fee1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == to2 && vout.Value == amount2 - fee2);
         }
 
         [Theory]
@@ -326,6 +331,25 @@ namespace Lykke.Service.Zcash.Api.Tests
             var from = depositWallet1;
             var to = hotWallet;
             var amount = amountValue;
+
+            // Act
+
+            // Assert
+            await Assert.ThrowsAsync<BuildTransactionException>(async () =>
+                await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to, amount)));
+        }
+        
+        [Theory]
+        [InlineData(0.00009000)] // a bit less than default fee (result amount is less than 0)
+        [InlineData(0.00010000)] // default fee (result amount is 0)
+        [InlineData(0.00010000 + 0.182 * 3 * 0.000001)] // default fee + relay fee (result amount is relayFee)
+        public async Task Build_ShouldThrowDust(decimal amount)
+        {
+            // Arrange
+            var type = OperationType.SingleFromSingleTo;
+            var subtractFee = true;
+            var from = depositWallet1;
+            var to = hotWallet;
 
             // Act
 
