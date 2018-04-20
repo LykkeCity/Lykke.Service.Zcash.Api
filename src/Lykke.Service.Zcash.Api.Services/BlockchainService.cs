@@ -395,11 +395,21 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<bool> ValidateAddressAsync(string address)
         {
+            if (string.IsNullOrEmpty(address))
+            {
+                return false;
+            }
+
             return (await _blockchainReader.ValidateAddressAsync(address)).IsValid;
         }
 
         public async Task<bool> ValidateSignedTransactionAsync(string transaction)
         {
+            if (string.IsNullOrEmpty(transaction))
+            {
+                return false;
+            }
+
             var tx = await _blockchainReader.DecodeRawTransaction(transaction);
 
             return tx != null && 
