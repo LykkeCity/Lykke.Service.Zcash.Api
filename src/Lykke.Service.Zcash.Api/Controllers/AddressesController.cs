@@ -25,11 +25,11 @@ namespace Lykke.Service.Zcash.Api.Controllers
         }
 
         [HttpGet("{address}/validity")]
-        public AddressValidationResponse IsValid([FromRoute]string address)
+        public async Task<AddressValidationResponse> IsValid([FromRoute]string address)
         {
             return new AddressValidationResponse()
             {
-                IsValid = ModelState.IsValidAddress(address)
+                IsValid = await _blockchainService.ValidateAddressAsync(address)
             };
         }
 
@@ -76,7 +76,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(BlockchainErrorResponse))]
         public async Task<IActionResult> Import([FromBody]string[] addresses)
         {
-            if (!ModelState.IsValid || addresses.Count(a => !ModelState.IsValidAddress(a)) > 0)
+            if (!ModelState.IsValid || addresses.Count(a => !ModelState.IsValidAddress(_blockchainService, a)) > 0)
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -95,7 +95,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public IActionResult ExplorerUrl([FromRoute]string address)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(address))
+                !ModelState.IsValidAddress(_blockchainService, address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
