@@ -98,6 +98,11 @@ namespace Lykke.Service.Zcash.Api.Controllers
 
         private async Task<IActionResult> GetHistory(string address, string afterHash, int take, HistoryAddressCategory category)
         {
+            if (take <= 0)
+            {
+                ModelState.AddModelError(nameof(take), "Must be greater than zero");
+            }
+
             if (!ModelState.IsValid ||
                 !ModelState.IsValidAddress(_blockchainService, address))
             {

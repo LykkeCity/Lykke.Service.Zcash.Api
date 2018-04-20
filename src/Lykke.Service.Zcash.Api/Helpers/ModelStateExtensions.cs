@@ -48,7 +48,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
             items = new(string from, string to, decimal amount)[1];
             asset = null;
 
-            if (!self.IsValid)
+            if (!self.IsValid ||
+                !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
@@ -107,7 +108,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
             items = new(string from, string to, decimal amount)[request.Inputs.Count];
             asset = null;
 
-            if (!self.IsValid)
+            if (!self.IsValid ||
+                !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
@@ -168,7 +170,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
             items = new(string from, string to, decimal amount)[request.Outputs.Count];
             asset = null;
 
-            if (!self.IsValid)
+            if (!self.IsValid ||
+                !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
@@ -224,7 +227,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
             BroadcastTransactionRequest request,
             IBlockchainService blockchainService)
         {
-            if (!self.IsValid)
+            if (!self.IsValid ||
+                !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
