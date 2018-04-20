@@ -49,7 +49,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
             items = new(BitcoinAddress from, BitcoinAddress to, Money amount)[1];
             asset = null;
 
-            if (!self.IsValid)
+            if (!self.IsValid ||
+                !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
@@ -108,7 +109,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
             items = new(BitcoinAddress from, BitcoinAddress to, Money amount)[request.Inputs.Count];
             asset = null;
 
-            if (!self.IsValid)
+            if (!self.IsValid ||
+                !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
@@ -169,7 +171,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
             items = new(BitcoinAddress from, BitcoinAddress to, Money amount)[request.Outputs.Count];
             asset = null;
 
-            if (!self.IsValid)
+            if (!self.IsValid ||
+                !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
@@ -229,7 +232,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
         {
             (transaction, coins) = (null, null);
 
-            if (!self.IsValid)
+            if (!self.IsValid ||
+                !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
