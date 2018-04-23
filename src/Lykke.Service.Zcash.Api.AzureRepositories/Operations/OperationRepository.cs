@@ -53,6 +53,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                 Fee = fee,
                 SubtractFee = subtractFee,
                 AssetId = assetId,
+                Type = type,
                 State = OperationState.Built,
                 BuiltUtc = DateTime.UtcNow,
                 Items = operationItemEntities
