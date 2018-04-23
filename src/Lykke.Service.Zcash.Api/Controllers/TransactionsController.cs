@@ -207,7 +207,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             return Ok();
         }
 
-        [HttpGet("broadcast/single/{operationId:guid}")]
+        [HttpGet("broadcast/single/{operationId}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(BroadcastedSingleTransactionResponse))]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> GetSingle([FromRoute]Guid operationId)
@@ -215,7 +215,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             return await Get(operationId, op => op.ToSingleResponse());
         }
 
-        [HttpGet("broadcast/many-inputs/{operationId:guid}")]
+        [HttpGet("broadcast/many-inputs/{operationId}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(BroadcastedTransactionWithManyInputsResponse))]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> GetManyInputs([FromRoute]Guid operationId)
@@ -223,7 +223,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             return await Get(operationId, op => op.ToManyInputsResponse());
         }
 
-        [HttpGet("broadcast/many-outputs/{operationId:guid}")]
+        [HttpGet("broadcast/many-outputs/{operationId}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(BroadcastedTransactionWithManyOutputsResponse))]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> GetManyOutputs([FromRoute]Guid operationId)
@@ -231,7 +231,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             return await Get(operationId, op => op.ToManyOutputsResponse());
         }
 
-        [HttpDelete("broadcast/{operationId:guid}")]
+        [HttpDelete("broadcast/{operationId}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> DeleteBroadcasted([FromRoute]Guid operationId)
