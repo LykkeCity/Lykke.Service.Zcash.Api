@@ -39,7 +39,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
 
             try
             {
-                var signContext = await _blockchainService.BuildAsync(operationId, OperationType.SingleFromSingleTo, asset, subtractFees, items);
+                var signContext = await _blockchainService.BuildAsync(operationId, type, asset, subtractFees, items);
 
                 return Ok(new BuildTransactionResponse
                 {
