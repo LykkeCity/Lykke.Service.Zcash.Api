@@ -151,7 +151,8 @@ namespace Lykke.Service.Zcash.Api.Services
 
             var outputs = toAddresses
                 .FullJoin(change, x => x.Key, a => a, b => b, (a, b) => new KeyValuePair<string, decimal>(a.Key, a.Value + b.Value))
-                .ToDictionary(x => x.Key, x => x.Value);
+                .Where(x => x.Value > 0m)
+                .ToDictionary();
 
             var hex = await _blockchainReader.CreateRawTransaction(inputs, outputs);
 
@@ -395,10 +396,21 @@ namespace Lykke.Service.Zcash.Api.Services
                 return false;
             }
 
-            var tx = await _blockchainReader.DecodeRawTransaction(transaction);
+            try
+            {
+                var tx = await _blockchainReader.DecodeRawTransaction(transaction);
 
-            return tx != null && 
-                tx.Vin.All(vin => vin.ScriptSig != null && !string.IsNullOrEmpty(vin.ScriptSig.Asm) && !string.IsNullOrEmpty(vin.ScriptSig.Hex));
+                return tx != null &&
+                    tx.Vin.All(vin => vin.ScriptSig != null && !string.IsNullOrEmpty(vin.ScriptSig.Asm) && !string.IsNullOrEmpty(vin.ScriptSig.Hex));
+            }
+            catch (Exception ex)
+            {
+                await _log.WriteWarningAsync(nameof(ValidateSignedTransactionAsync),
+                    $"Transaction: {transaction}, Error: {ex.ToString()}",
+                    $"Error while decoding transaction");
+
+                return false;
+            }
         }
 
         public decimal CalcFee(int numInputs, int numOutputs, ISettings settings)
