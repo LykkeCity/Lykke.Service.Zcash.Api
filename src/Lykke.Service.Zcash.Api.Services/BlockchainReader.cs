@@ -56,7 +56,7 @@ namespace Lykke.Service.Zcash.Api.Services
             return await SendRpcAsync<string[]>(RPCOperations.getaddressesbyaccount, string.Empty);
         }
 
-        public async Task<Info> GetInfo()
+        public async Task<Info> GetInfoAsync()
         {
             return await SendRpcAsync<Info>(RPCOperations.getinfo);
         }
@@ -69,6 +69,11 @@ namespace Lykke.Service.Zcash.Api.Services
         public async Task<RawTransaction> DecodeRawTransaction(string transaction)
         {
             return await SendRpcAsync<RawTransaction>(RPCOperations.decoderawtransaction, transaction);
+        }
+
+        public async Task<Block> GetBlockAsync(string blockHash)
+        {
+            return await SendRpcAsync<Block>(RPCOperations.getblock, blockHash);
         }
 
         public async Task<T> SendRpcAsync<T>(RPCOperations command, params object[] parameters)

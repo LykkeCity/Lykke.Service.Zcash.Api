@@ -51,7 +51,7 @@ namespace Lykke.Service.Zcash.Api.Services
         {
             var settings = await LoadStoredSettingsAsync();
 
-            var info = await _blockchainReader.GetInfo();
+            var info = await _blockchainReader.GetInfoAsync();
 
             var fromAddresses = 
                 items.GroupBy(x => x.from)
@@ -156,18 +156,32 @@ namespace Lykke.Service.Zcash.Api.Services
 
             var hex = await _blockchainReader.CreateRawTransaction(inputs, outputs);
 
+            var raw = await _blockchainReader.DecodeRawTransaction(hex);
+
             var ctx = JsonConvert.SerializeObject((hex, inputs));
 
-            await _operationRepository.UpsertAsync(operationId, type, items, fee, subtractFees, asset.Id);
+            await _operationRepository.UpsertAsync(operationId, type, items, fee, subtractFees, asset.Id, raw.ExpiryHeight);
 
             return (ctx, outputs);
         }
 
         public async Task BroadcastAsync(Guid operationId, string transaction)
         {
-            var hash = await _blockchainReader.SendRawTransactionAsync(transaction);
+            try
+            {
+                var hash = await _blockchainReader.SendRawTransactionAsync(transaction);
 
-            await _operationRepository.UpdateAsync(operationId, sentUtc: DateTime.UtcNow, hash: hash);
+                await _operationRepository.UpdateAsync(operationId, 
+                    sentUtc: DateTime.UtcNow, hash: hash);
+            }
+            catch (NBitcoin.RPC.RPCException ex) when (ex.RPCCode == NBitcoin.RPC.RPCErrorCode.RPC_VERIFY_REJECTED)
+            {
+                await _operationRepository.UpdateAsync(operationId, 
+                    failedUtc: DateTime.UtcNow);
+                  
+                await _log.WriteWarningAsync(nameof(BroadcastAsync), $"Operation: {operationId}", 
+                    "Transaction rejected", ex);
+            }
         }
 
         public async Task<IOperation> GetOperationAsync(Guid operationId, bool loadItems = true)
@@ -239,6 +253,21 @@ namespace Lykke.Service.Zcash.Api.Services
                         recorded++;
                     }
                 }
+            }
+
+            // we've processed confirmed transactions only,
+            // so to prevent marking most likely valid, but not yet processed transactions as failed
+            // we must use last confirmed block instead of the best block height to check expiration
+
+            var lastBlock = await _blockchainReader.GetBlockAsync(recent.LastBlock);
+
+            var expiredOperations = await _operationRepository.GetExpiredAsync(lastBlock.Height);
+
+            foreach (var id in expiredOperations)
+            {
+                await _operationRepository.UpdateAsync(id, failedUtc: DateTime.UtcNow);
+
+                await _log.WriteWarningAsync(nameof(HandleHistoryAsync), $"Operation: {id}", "Transaction expired");
             }
 
             await SaveStoredSettingsAsync(recent.LastBlock);

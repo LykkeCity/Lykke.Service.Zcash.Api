@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using AzureStorage;
 using AzureStorage.Tables;
 using Common.Log;
-using Lykke.AzureStorage.Tables;
 using Lykke.Service.Zcash.Api.Core.Domain.Operations;
 using Lykke.SettingsReader;
 using Microsoft.WindowsAzure.Storage.Table;
@@ -17,22 +16,26 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
         private INoSQLTableStorage<OperationEntity> _operationStorage;
         private INoSQLTableStorage<OperationItemEntity> _operationItemStorage;
         private INoSQLTableStorage<IndexEntity> _indexStorage;
+        private INoSQLTableStorage<TableEntity> _expirationStorage;
         private static string GetOperationPartitionKey(Guid operationId) => operationId.ToString();
         private static string GetOperationRowKey() => string.Empty;
         private static string GetOperationItemPartitionKey(Guid operationId) => operationId.ToString();
         private static string GetOperationItemRowKey() => string.Empty;
         private static string GetIndexPartitionKey(string hash) => hash;
         private static string GetIndexRowKey() => string.Empty;
+        private static string GetExpirationPartitionKey(uint expiryHeight) => expiryHeight.ToString().PadLeft(10, '0');
+        private static string GetExpirationRowKey(Guid operationId) => operationId.ToString();
 
         public OperationRepository(IReloadingManager<string> connectionStringManager, ILog log)
         {
             _operationStorage = AzureTableStorage<OperationEntity>.Create(connectionStringManager, "ZcashOperations", log);
             _operationItemStorage = AzureTableStorage<OperationItemEntity>.Create(connectionStringManager, "ZcashOperationItems", log);
             _indexStorage = AzureTableStorage<IndexEntity>.Create(connectionStringManager, "ZcashOperationIndex", log);
+            _expirationStorage = AzureTableStorage<TableEntity>.Create(connectionStringManager, "ZcashOperationExpiration", log);
         }
 
         public async Task<IOperation> UpsertAsync(Guid operationId, OperationType type, (string fromAddress, string toAddress, decimal amount)[] items,
-            decimal fee, bool subtractFee, string assetId)
+            decimal fee, bool subtractFee, string assetId, uint expiryHeight)
         {
             var operationItemEntities = items
                 .Select(item => new OperationItemEntity()
@@ -56,12 +59,21 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                 Type = type,
                 State = OperationState.Built,
                 BuiltUtc = DateTime.UtcNow,
-                Items = operationItemEntities
+                Items = operationItemEntities,
+                ExpiryHeight = expiryHeight
+            };
+
+            var expirationEntity = new TableEntity()
+            {
+                PartitionKey = GetExpirationPartitionKey(expiryHeight),
+                RowKey = GetExpirationRowKey(operationId)
             };
 
             await _operationStorage.InsertOrReplaceAsync(operationEntity);
 
             await _operationItemStorage.InsertOrReplaceAsync(operationItemEntities);
+
+            await _expirationStorage.InsertOrReplaceAsync(expirationEntity);
 
             return operationEntity;
         }
@@ -92,6 +104,13 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
 
             await UpsertIndexAsync(hash, operationId);
 
+            if (completedUtc.HasValue || failedUtc.HasValue)
+            {
+                await _expirationStorage.DeleteAsync(
+                    GetExpirationPartitionKey(entity.ExpiryHeight),
+                    GetExpirationRowKey(operationId));
+            }
+
             return entity;
         }
 
@@ -121,6 +140,27 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
             }
 
             return null;
+        }
+
+        public async Task<IEnumerable<Guid>> GetExpiredAsync(uint expiryHeight)
+        {
+            var ids = new List<Guid>();
+            var partitionKey = GetExpirationPartitionKey(expiryHeight);
+            var query = new TableQuery<TableEntity>()
+                .Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.LessThanOrEqual, partitionKey));
+
+            // use approach with continuation to prevent searching on client side
+
+            (IEnumerable<TableEntity> entities, string continuation) result = (null, null);
+
+            do
+            {
+                result = await _expirationStorage.GetDataWithContinuationTokenAsync(query, result.continuation);
+                ids.AddRange(result.entities.Select(e => Guid.Parse(e.RowKey)));
+            }
+            while (!string.IsNullOrEmpty(result.continuation));
+
+            return ids;
         }
 
         public async Task UpsertIndexAsync(string hash, Guid operationId)

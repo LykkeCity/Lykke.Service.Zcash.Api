@@ -102,8 +102,12 @@ namespace Lykke.Service.Zcash.Api.Tests
                 .Returns((int level, string[] addrs) => Task.FromResult(utxo));
 
             blockchainReader
-                .Setup(x => x.GetInfo())
+                .Setup(x => x.GetInfoAsync())
                 .Returns(() => Task.FromResult(new Info { RelayFee = relayFee }));
+
+            blockchainReader
+                .Setup(x => x.DecodeRawTransaction(It.IsAny<string>()))
+                .Returns((string hex) => Task.FromResult(new RawTransaction()));
 
             blockhainService = new BlockchainService(log,
                 blockchainReader.Object,

@@ -13,8 +13,9 @@ namespace Lykke.Service.Zcash.Api.Services
         Task<string> SendRawTransactionAsync(string transaction);
         Task<AddressInfo> ValidateAddressAsync(string address);
         Task<string[]> GetAddresssesAsync();
-        Task<Info> GetInfo();
+        Task<Info> GetInfoAsync();
         Task<string> CreateRawTransaction(Utxo[] inputs, Dictionary<string, decimal> outputs);
         Task<RawTransaction> DecodeRawTransaction(string transaction);
+        Task<Block> GetBlockAsync(string blockHash);
     }
 }
