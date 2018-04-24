@@ -20,6 +20,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
         decimal Amount { get; }
         decimal Fee { get; }
         bool SubtractFee { get; }
+        uint ExpiryHeight { get; }
 
         IOperationItem[] Items { get; }
     }
