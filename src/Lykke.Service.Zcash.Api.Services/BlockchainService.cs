@@ -429,7 +429,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public string[] GetExplorerUrl(string address)
         {
-            if (_settings.NetworkType == ZcashNetworks.Mainnet.Name)
+            if (_settings.NetworkType == ZcashNetworks.Instance.Mainnet.Name)
             {
                 return 
                     _settings.MainNetExplorerAddressUrls?.Select(url => string.Format(url, address))?.ToArray() ??
@@ -439,7 +439,7 @@ namespace Lykke.Service.Zcash.Api.Services
                     };
             }
 
-            if (_settings.NetworkType == ZcashNetworks.Testnet.Name)
+            if (_settings.NetworkType == ZcashNetworks.Instance.Testnet.Name)
             {
                 return
                     _settings.TestNetExplorerAddressUrls?.Select(url => string.Format(url, address))?.ToArray() ??

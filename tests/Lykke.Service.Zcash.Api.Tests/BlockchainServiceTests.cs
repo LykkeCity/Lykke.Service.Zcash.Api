@@ -26,7 +26,7 @@ namespace Lykke.Service.Zcash.Api.Tests
     public class BlockchainServiceTests
     {
         private ILog log;
-        private Network network = ZcashNetworks.Testnet;
+        private Network network = ZcashNetworks.Instance.Testnet;
         private BitcoinAddress depositWallet1 = BitcoinAddress.Create("tmRQYJ8KQg3qYjVtUEiZ5timrJ4N3AoRY1K");
         private BitcoinAddress depositWallet2 = BitcoinAddress.Create("tmA4rvdJU3HZ4ZUzZSjEUg7wbf1unbDBvGb");
         private BitcoinAddress depositWallet3 = BitcoinAddress.Create("tmL4JCMEFQW2YtxQptLbBJtH6dzowHouyxw");
@@ -100,7 +100,7 @@ namespace Lykke.Service.Zcash.Api.Tests
 
         static BlockchainServiceTests()
         {
-            ZcashNetworks.Register();
+            ZcashNetworks.Instance.EnsureRegistered();
         }
 
         public BlockchainServiceTests()
