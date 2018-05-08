@@ -293,35 +293,37 @@ namespace Lykke.Service.Zcash.Api.Services
         {
             var settings = await LoadStoredSettingsAsync();
             var balances = new List<AddressBalance>();
-            var addressQuery = await _addressRepository.GetBalanceAddressesChunkAsync(continuation, take);
 
-            if (addressQuery.items.Any())
+            do
             {
-                var utxo = await _blockchainReader.ListUnspentAsync(settings.ConfirmationLevel, addressQuery.items.ToArray());
+                var addressQuery = await _addressRepository.GetBalanceAddressesChunkAsync(continuation, take);
 
-                foreach (var group in utxo.GroupBy(x => x.Address))
+                if (addressQuery.items.Any())
                 {
-                    var lastTx = await GetRawTransactionAsync(
-                        group.OrderByDescending(x => x.Confirmations).First().TxId, 
-                        restoreInputs: false);
+                    var utxo = await _blockchainReader.ListUnspentAsync(settings.ConfirmationLevel, addressQuery.items.ToArray());
 
-                    balances.Add(new AddressBalance
+                    foreach (var group in utxo.GroupBy(x => x.Address))
                     {
-                        Address = group.Key,
-                        Balance = group.Sum(x => x.Amount),
-                        Asset = Asset.Zec,
-                        BlockTime = lastTx.BlockTime
-                    });
+                        var lastTx = await GetRawTransactionAsync(
+                            group.OrderByDescending(x => x.Confirmations).First().TxId,
+                            restoreInputs: false);
+
+                        balances.Add(new AddressBalance
+                        {
+                            Address = group.Key,
+                            Balance = group.Sum(x => x.Amount),
+                            Asset = Asset.Zec,
+                            BlockTime = lastTx.BlockTime
+                        });
+                    }
                 }
-            }
 
-            if (!settings.SkipNodeCheck && !balances.Any() && !(await _blockchainReader.GetAddresssesAsync()).Any())
-            {
-                await _log.WriteWarningAsync(nameof(GetBalancesAsync), 
-                    "NodeCheck", "It looks like Zcash node is a new one. Consider re-import observable addresses.");
+                take -= balances.Count;
+                continuation = addressQuery.continuation;
             }
+            while (take > 0 && !string.IsNullOrEmpty(continuation));
 
-            return (addressQuery.continuation, balances);
+            return (continuation, balances);
         }
 
         public async Task<(string continuation, IEnumerable<string> items)> GetObservableAddressesAsync(AddressType type, string continuation = null, int take = 100)
