@@ -5,6 +5,8 @@ namespace Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings
 {
     public class ZcashApiSettings : ISettings
     {
+        private int _confirmationLevel;
+
         public DbSettings Db { get; set; }
         public string RpcAuthenticationString { get; set; }
         public string RpcUrl { get; set; }
@@ -12,7 +14,7 @@ namespace Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings
         public decimal MinFee { get; set; }
         public decimal MaxFee { get; set; }
         public bool UseDefaultFee { get; set; }
-        public int ConfirmationLevel { get; set; }
+        public int ConfirmationLevel { get => _confirmationLevel <= 0 ? 1 : _confirmationLevel; set => _confirmationLevel = value; }
         public int IndexInterval { get; set; }
         public string LastBlockHash { get; set; }
         public string NetworkType { get; set; }
