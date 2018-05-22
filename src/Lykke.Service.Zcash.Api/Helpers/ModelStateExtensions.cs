@@ -211,7 +211,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
                     try
                     {
                         var coins = Conversions.CoinsFromContract(request.Outputs[i].Amount, asset.DecimalPlaces);
-                        items[0].amount = Money.FromUnit(coins, asset.Unit);
+                        items[i].amount = Money.FromUnit(coins, asset.Unit);
                     }
                     catch (ConversionException ex)
                     {
