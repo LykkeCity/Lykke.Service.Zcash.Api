@@ -20,7 +20,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
         private static string GetOperationPartitionKey(Guid operationId) => operationId.ToString();
         private static string GetOperationRowKey() => string.Empty;
         private static string GetOperationItemPartitionKey(Guid operationId) => operationId.ToString();
-        private static string GetOperationItemRowKey() => string.Empty;
+        private static string GetOperationItemRowKey(int index) => index.ToString().PadLeft(4, '0');
         private static string GetIndexPartitionKey(string hash) => hash;
         private static string GetIndexRowKey() => string.Empty;
         private static string GetExpirationPartitionKey(uint expiryHeight) => expiryHeight.ToString().PadLeft(10, '0');
@@ -38,10 +38,10 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
             decimal fee, bool subtractFee, string assetId, uint expiryHeight)
         {
             var operationItemEntities = items
-                .Select(item => new OperationItemEntity()
+                .Select((item, index) => new OperationItemEntity()
                 {
                     PartitionKey = GetOperationItemPartitionKey(operationId),
-                    RowKey = GetOperationItemRowKey(),
+                    RowKey = GetOperationItemRowKey(index),
                     Amount = item.amount,
                     FromAddress = item.fromAddress,
                     ToAddress = item.toAddress

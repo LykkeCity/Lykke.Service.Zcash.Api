@@ -209,7 +209,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
                 {
                     try
                     {
-                        items[0].amount = Conversions.CoinsFromContract(request.Outputs[i].Amount, asset.DecimalPlaces);
+                        items[i].amount = Conversions.CoinsFromContract(request.Outputs[i].Amount, asset.DecimalPlaces);
                     }
                     catch (ConversionException ex)
                     {
