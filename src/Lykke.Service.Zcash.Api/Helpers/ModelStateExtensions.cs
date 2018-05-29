@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Common;
@@ -6,24 +6,22 @@ using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Transactions;
 using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain;
+using Lykke.Service.Zcash.Api.Core.Services;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using NBitcoin;
-using NBitcoin.JsonConverters;
-using CoreUtils = Lykke.Service.Zcash.Api.Core.Utils;
 
 namespace Lykke.Service.Zcash.Api.Helpers
 {
     public static class ModelStateExtensions
     {
-        public static bool IsValidAddress(this ModelStateDictionary self, string address)
+        public static bool IsValidAddress(this ModelStateDictionary self, IBlockchainService blockchainService, string address)
         {
-            if (CoreUtils.ValidateAddress(address, out var _))
+            if (blockchainService.ValidateAddressAsync(address).Result)
             {
                 return true;
             }
             else
             {
-                self.AddModelError(nameof(address), "Address must be a valid Zcash transparent (t-) address");
+                self.AddModelError(nameof(address), $"{address} is not a valid Zcash transparent (t-) address");
                 return false;
             }
         }
@@ -43,10 +41,11 @@ namespace Lykke.Service.Zcash.Api.Helpers
 
         public static bool IsValidRequest(this ModelStateDictionary self,
             BuildSingleTransactionRequest request,
-            out (BitcoinAddress from, BitcoinAddress to, Money amount)[] items,
+            IBlockchainService blockchainService,
+            out (string from, string to, decimal amount)[] items,
             out Asset asset)
         {
-            items = new(BitcoinAddress from, BitcoinAddress to, Money amount)[1];
+            items = new(string from, string to, decimal amount)[1];
             asset = null;
 
             if (!self.IsValid ||
@@ -55,9 +54,9 @@ namespace Lykke.Service.Zcash.Api.Helpers
                 return false;
             }
 
-            if (CoreUtils.ValidateAddress(request.FromAddress, out var fromAddress))
+            if (blockchainService.ValidateAddressAsync(request.FromAddress).Result)
             {
-                items[0].from = fromAddress;
+                items[0].from = request.FromAddress;
             }
             else
             {
@@ -66,9 +65,9 @@ namespace Lykke.Service.Zcash.Api.Helpers
                     "Invalid sender adddress");
             }
 
-            if (CoreUtils.ValidateAddress(request.ToAddress, out var toAddress))
+            if (blockchainService.ValidateAddressAsync(request.ToAddress).Result)
             {
-                items[0].to = toAddress;
+                items[0].to = request.ToAddress;
             }
             else
             {
@@ -87,8 +86,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
             {
                 try
                 {
-                    var coins = Conversions.CoinsFromContract(request.Amount, asset.DecimalPlaces);
-                    items[0].amount = Money.FromUnit(coins, asset.Unit);
+                    items[0].amount = Conversions.CoinsFromContract(request.Amount, asset.DecimalPlaces);
                 }
                 catch (ConversionException ex)
                 {
@@ -103,10 +101,11 @@ namespace Lykke.Service.Zcash.Api.Helpers
 
         public static bool IsValidRequest(this ModelStateDictionary self,
             BuildTransactionWithManyInputsRequest request,
-            out (BitcoinAddress from, BitcoinAddress to, Money amount)[] items,
+            IBlockchainService blockchainService,
+            out (string from, string to, decimal amount)[] items,
             out Asset asset)
         {
-            items = new(BitcoinAddress from, BitcoinAddress to, Money amount)[request.Inputs.Count];
+            items = new(string from, string to, decimal amount)[request.Inputs.Count];
             asset = null;
 
             if (!self.IsValid ||
@@ -122,7 +121,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
                     "Invalid asset");
             }
 
-            if (!CoreUtils.ValidateAddress(request.ToAddress, out var toAddress))
+            if (!blockchainService.ValidateAddressAsync(request.ToAddress).Result)
             {
                 self.AddModelError(
                     nameof(BuildSingleTransactionRequest.ToAddress),
@@ -131,9 +130,9 @@ namespace Lykke.Service.Zcash.Api.Helpers
 
             for (int i = 0; i < request.Inputs.Count; i++)
             {
-                if (CoreUtils.ValidateAddress(request.Inputs[i].FromAddress, out var fromAddress))
+                if (blockchainService.ValidateAddressAsync(request.Inputs[i].FromAddress).Result)
                 {
-                    items[i].from = fromAddress;
+                    items[i].from = request.Inputs[i].FromAddress;
                 }
                 else
                 {
@@ -142,14 +141,13 @@ namespace Lykke.Service.Zcash.Api.Helpers
                         "Invalid sender adddress");
                 }
 
-                items[i].to = toAddress;
+                items[i].to = request.ToAddress;
 
                 if (asset != null)
                 {
                     try
                     {
-                        var coins = Conversions.CoinsFromContract(request.Inputs[i].Amount, asset.DecimalPlaces);
-                        items[i].amount = Money.FromUnit(coins, asset.Unit);
+                        items[i].amount = Conversions.CoinsFromContract(request.Inputs[i].Amount, asset.DecimalPlaces);
                     }
                     catch (ConversionException ex)
                     {
@@ -165,10 +163,11 @@ namespace Lykke.Service.Zcash.Api.Helpers
 
         public static bool IsValidRequest(this ModelStateDictionary self,
             BuildTransactionWithManyOutputsRequest request,
-            out (BitcoinAddress from, BitcoinAddress to, Money amount)[] items,
+            IBlockchainService blockchainService,
+            out (string from, string to, decimal amount)[] items,
             out Asset asset)
         {
-            items = new(BitcoinAddress from, BitcoinAddress to, Money amount)[request.Outputs.Count];
+            items = new(string from, string to, decimal amount)[request.Outputs.Count];
             asset = null;
 
             if (!self.IsValid ||
@@ -184,7 +183,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
                     "Invalid asset");
             }
 
-            if (!CoreUtils.ValidateAddress(request.FromAddress, out var fromAddress))
+            if (!blockchainService.ValidateAddressAsync(request.FromAddress).Result)
             {
                 self.AddModelError(
                     nameof(BuildTransactionWithManyOutputsRequest.FromAddress),
@@ -193,11 +192,11 @@ namespace Lykke.Service.Zcash.Api.Helpers
 
             for (int i = 0; i < request.Outputs.Count; i++)
             {
-                items[i].from = fromAddress;
+                items[i].from = request.FromAddress;
 
-                if (CoreUtils.ValidateAddress(request.Outputs[i].ToAddress, out var toAddress))
+                if (blockchainService.ValidateAddressAsync(request.Outputs[i].ToAddress).Result)
                 {
-                    items[i].to = toAddress;
+                    items[i].to = request.Outputs[i].ToAddress;
                 }
                 else
                 {
@@ -210,8 +209,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
                 {
                     try
                     {
-                        var coins = Conversions.CoinsFromContract(request.Outputs[i].Amount, asset.DecimalPlaces);
-                        items[i].amount = Money.FromUnit(coins, asset.Unit);
+                        items[i].amount = Conversions.CoinsFromContract(request.Outputs[i].Amount, asset.DecimalPlaces);
                     }
                     catch (ConversionException ex)
                     {
@@ -227,22 +225,15 @@ namespace Lykke.Service.Zcash.Api.Helpers
 
         public static bool IsValidRequest(this ModelStateDictionary self,
             BroadcastTransactionRequest request,
-            out Transaction transaction,
-            out ICoin[] coins)
+            IBlockchainService blockchainService)
         {
-            (transaction, coins) = (null, null);
-
             if (!self.IsValid ||
                 !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
 
-            try
-            {
-                (transaction, coins) = Serializer.ToObject<(Transaction, ICoin[])>(request.SignedTransaction.Base64ToString());
-            }
-            catch (Exception ex)
+            if (!blockchainService.ValidateSignedTransactionAsync(request.SignedTransaction).Result)
             {
                 self.AddModelError(
                     nameof(BroadcastTransactionRequest.SignedTransaction),

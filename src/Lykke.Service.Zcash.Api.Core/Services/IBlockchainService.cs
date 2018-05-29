@@ -5,15 +5,15 @@ using Lykke.Service.Zcash.Api.Core.Domain;
 using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
 using Lykke.Service.Zcash.Api.Core.Domain.History;
 using Lykke.Service.Zcash.Api.Core.Domain.Operations;
-using NBitcoin;
 
 namespace Lykke.Service.Zcash.Api.Core.Services
 {
     public interface IBlockchainService
     {
-        Task<string> BuildAsync(Guid operationId, OperationType type, Asset asset, bool subtractFees, params (BitcoinAddress from, BitcoinAddress to, Money amount)[] items);
+        Task<(string context, Dictionary<string, decimal> outputs)> BuildAsync(
+            Guid operationId, OperationType type, Asset asset, bool subtractFees, params (string from, string to, decimal amount)[] items);
 
-        Task BroadcastAsync(Guid operationId, Transaction transaction);
+        Task BroadcastAsync(Guid operationId, string transaction);
 
         Task<IOperation> GetOperationAsync(Guid operationId, bool loadItems = true);
 
@@ -25,6 +25,8 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 
         Task<(string continuation, IEnumerable<AddressBalance> items)> GetBalancesAsync(string continuation = null, int take = 100);
 
+        Task<(string continuation, IEnumerable<string> items)> GetObservableAddressesAsync(AddressType type, string continuation = null, int take = 100);
+
         Task<bool> TryDeleteBalanceAddressAsync(string address);
 
         Task<bool> TryCreateBalanceAddressAsync(string address);
@@ -33,8 +35,12 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 
         Task<bool> TryCreateHistoryAddressAsync(string address, HistoryAddressCategory category);
 
-        void EnsureSigned(Transaction transaction, ICoin[] coins);
-
         string[] GetExplorerUrl(string address);
+
+        Task ImportAddress(string address);
+
+        Task<bool> ValidateAddressAsync(string address);
+
+        Task<bool> ValidateSignedTransactionAsync(string transaction);
     }
 }

@@ -13,7 +13,6 @@ using Lykke.Service.Zcash.Api.Core.Services;
 using Lykke.Service.Zcash.Api.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using NBitcoin;
 
 namespace Lykke.Service.Zcash.Api.Controllers
 {
@@ -27,7 +26,8 @@ namespace Lykke.Service.Zcash.Api.Controllers
             _blockchainService = blockchainService;
         }
 
-        private async Task<IActionResult> Build(Guid operationId, OperationType type, Asset asset, bool subtractFees, params (BitcoinAddress from, BitcoinAddress to, Money amount)[] items)
+        [NonAction]
+        public async Task<IActionResult> Build(Guid operationId, OperationType type, Asset asset, bool subtractFees, params (string from, string to, decimal amount)[] items)
         {
             var operation = await _blockchainService.GetOperationAsync(operationId, loadItems: false);
 
@@ -37,25 +37,20 @@ namespace Lykke.Service.Zcash.Api.Controllers
                     ErrorResponse.Create($"Operation is already {Enum.GetName(typeof(OperationState), operation.State).ToLower()}"));
             }
 
-            var signContext = string.Empty;
-
             try
             {
-                signContext = await _blockchainService.BuildAsync(operationId, OperationType.SingleFromSingleTo, asset, subtractFees, items);
-            }
-            catch (DustException)
-            {
-                return BadRequest(BlockchainErrorResponse.FromKnownError(BlockchainErrorCode.AmountIsTooSmall));
-            }
-            catch (NotEnoughFundsException)
-            {
-                return BadRequest(BlockchainErrorResponse.FromKnownError(BlockchainErrorCode.NotEnoughtBalance));
-            }
+                var signContext = await _blockchainService.BuildAsync(operationId, type, asset, subtractFees, items);
 
-            return Ok(new BuildTransactionResponse
+                return Ok(new BuildTransactionResponse
+                {
+                    TransactionContext = signContext.context.ToBase64()
+                });
+            }
+            catch (BuildTransactionException ex)
             {
-                TransactionContext = signContext.ToBase64()
-            });
+                return BadRequest(BlockchainErrorResponse.FromKnownError(ex.Error == BuildTransactionException.ErrorCode.Dust ? 
+                    BlockchainErrorCode.AmountIsTooSmall : BlockchainErrorCode.NotEnoughtBalance));
+            }
         }
 
         private async Task<IActionResult> Get<TResponse>(Guid operationId, Func<IOperation, TResponse> toResponse)
@@ -76,7 +71,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         private async Task<IActionResult> Observe(string address, HistoryAddressCategory category)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(address))
+                !ModelState.IsValidAddress(_blockchainService, address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -90,7 +85,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         private async Task<IActionResult> DeleteObservation(string address, HistoryAddressCategory category)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(address))
+                !ModelState.IsValidAddress(_blockchainService, address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -109,7 +104,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             }
 
             if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(address))
+                !ModelState.IsValidAddress(_blockchainService, address))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -128,7 +123,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public async Task<IActionResult> Build([FromBody]BuildSingleTransactionRequest request)
         {
             if (!ModelState.IsValid || 
-                !ModelState.IsValidRequest(request, out var items, out var asset))
+                !ModelState.IsValidRequest(request, _blockchainService, out var items, out var asset))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -150,7 +145,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public async Task<IActionResult> Build([FromBody]BuildTransactionWithManyInputsRequest request)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidRequest(request, out var items, out var asset))
+                !ModelState.IsValidRequest(request, _blockchainService, out var items, out var asset))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -165,7 +160,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public async Task<IActionResult> Build([FromBody]BuildTransactionWithManyOutputsRequest request)
         {
             if (!ModelState.IsValid ||
-                !ModelState.IsValidRequest(request, out var items, out var asset))
+                !ModelState.IsValidRequest(request, _blockchainService, out var items, out var asset))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
@@ -188,12 +183,10 @@ namespace Lykke.Service.Zcash.Api.Controllers
         public async Task<IActionResult> Broadcast([FromBody]BroadcastTransactionRequest request)
         {
             if (!ModelState.IsValid || 
-                !ModelState.IsValidRequest(request, out var transaction, out var coins))
+                !ModelState.IsValidRequest(request, _blockchainService))
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
-
-            _blockchainService.EnsureSigned(transaction, coins);
 
             var operation = await _blockchainService.GetOperationAsync(request.OperationId, false);
 
@@ -209,12 +202,12 @@ namespace Lykke.Service.Zcash.Api.Controllers
                     ErrorResponse.Create($"Operation is already {Enum.GetName(typeof(OperationState), operation.State).ToLower()}"));
             }
 
-            await _blockchainService.BroadcastAsync(operation.OperationId, transaction);
+            await _blockchainService.BroadcastAsync(operation.OperationId, request.SignedTransaction);
             
             return Ok();
         }
 
-        [HttpGet("broadcast/single/{operationId:guid}")]
+        [HttpGet("broadcast/single/{operationId}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(BroadcastedSingleTransactionResponse))]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> GetSingle([FromRoute]Guid operationId)
@@ -222,7 +215,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             return await Get(operationId, op => op.ToSingleResponse());
         }
 
-        [HttpGet("broadcast/many-inputs/{operationId:guid}")]
+        [HttpGet("broadcast/many-inputs/{operationId}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(BroadcastedTransactionWithManyInputsResponse))]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> GetManyInputs([FromRoute]Guid operationId)
@@ -230,7 +223,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             return await Get(operationId, op => op.ToManyInputsResponse());
         }
 
-        [HttpGet("broadcast/many-outputs/{operationId:guid}")]
+        [HttpGet("broadcast/many-outputs/{operationId}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(BroadcastedTransactionWithManyOutputsResponse))]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> GetManyOutputs([FromRoute]Guid operationId)
@@ -238,7 +231,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             return await Get(operationId, op => op.ToManyOutputsResponse());
         }
 
-        [HttpDelete("broadcast/{operationId:guid}")]
+        [HttpDelete("broadcast/{operationId}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         public async Task<IActionResult> DeleteBroadcasted([FromRoute]Guid operationId)

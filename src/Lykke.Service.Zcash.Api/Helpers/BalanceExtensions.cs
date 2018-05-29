@@ -1,7 +1,6 @@
 ﻿using Lykke.Service.BlockchainApi.Contract;
 using Lykke.Service.BlockchainApi.Contract.Balances;
 using Lykke.Service.Zcash.Api.Core.Domain.Addresses;
-using NBitcoin;
 
 namespace Lykke.Service.Zcash.Api.Helpers
 {

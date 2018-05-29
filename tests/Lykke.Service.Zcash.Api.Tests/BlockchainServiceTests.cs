@@ -1,8 +1,6 @@
 ﻿using System;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Common;
 using Common.Log;
 using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain;
@@ -15,10 +13,7 @@ using Lykke.Service.Zcash.Api.Core.Settings.ServiceSettings;
 using Lykke.Service.Zcash.Api.Services;
 using Lykke.Service.Zcash.Api.Services.Models;
 using Moq;
-using NBitcoin;
-using NBitcoin.JsonConverters;
-using NBitcoin.RPC;
-using NBitcoin.Zcash;
+using Newtonsoft.Json;
 using Xunit;
 
 namespace Lykke.Service.Zcash.Api.Tests
@@ -26,12 +21,12 @@ namespace Lykke.Service.Zcash.Api.Tests
     public class BlockchainServiceTests
     {
         private ILog log;
-        private Network network = ZcashNetworks.Instance.Testnet;
-        private BitcoinAddress depositWallet1 = BitcoinAddress.Create("tmRQYJ8KQg3qYjVtUEiZ5timrJ4N3AoRY1K");
-        private BitcoinAddress depositWallet2 = BitcoinAddress.Create("tmA4rvdJU3HZ4ZUzZSjEUg7wbf1unbDBvGb");
-        private BitcoinAddress depositWallet3 = BitcoinAddress.Create("tmL4JCMEFQW2YtxQptLbBJtH6dzowHouyxw");
-        private BitcoinAddress hotWallet = BitcoinAddress.Create("tmBh9ifoTp5keLnCcVnpLzkuMiTLMoPaYdR");
-        private Money amount = Money.Coins(1);
+        private string depositWallet1 = "tmRQYJ8KQg3qYjVtUEiZ5timrJ4N3AoRY1K";
+        private string depositWallet2 = "tmA4rvdJU3HZ4ZUzZSjEUg7wbf1unbDBvGb";
+        private string depositWallet3 = "tmL4JCMEFQW2YtxQptLbBJtH6dzowHouyxw";
+        private string hotWallet = "tmBh9ifoTp5keLnCcVnpLzkuMiTLMoPaYdR";
+        private decimal amount = 1M;
+        private decimal relayFee = 0.000001m;
         private ZcashApiSettings settings = new ZcashApiSettings()
         {
             FeePerKb = 0.00000001M,
@@ -98,11 +93,6 @@ namespace Lykke.Service.Zcash.Api.Tests
 
         private IBlockchainService blockhainService;
 
-        static BlockchainServiceTests()
-        {
-            ZcashNetworks.Instance.EnsureRegistered();
-        }
-
         public BlockchainServiceTests()
         {
             log = new LogToMemory();
@@ -110,6 +100,10 @@ namespace Lykke.Service.Zcash.Api.Tests
             blockchainReader
                 .Setup(x => x.ListUnspentAsync(It.IsAny<int>(), It.IsAny<string[]>()))
                 .Returns((int level, string[] addrs) => Task.FromResult(utxo));
+
+            blockchainReader
+                .Setup(x => x.GetInfo())
+                .Returns(() => Task.FromResult(new Info { RelayFee = relayFee }));
 
             blockhainService = new BlockchainService(log,
                 blockchainReader.Object,
@@ -120,13 +114,6 @@ namespace Lykke.Service.Zcash.Api.Tests
                 settings);
         }
 
-        public Money GetInputAmount(TxIn input)
-        {
-            return utxo
-                .First(x => input.PrevOut.Hash.ToString() == x.TxId && input.PrevOut.N == x.Vout)
-                .Money;
-        }
-
         [Fact]
         public async Task Build_ShouldAddFee()
         {
@@ -135,18 +122,18 @@ namespace Lykke.Service.Zcash.Api.Tests
             var subtractFee = false;
             var from = depositWallet1;
             var to = hotWallet;
-            var amount = Money.Coins(1);
+            var amount = 1m;
 
             // Act
             var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to, amount));
-            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+            var (tx, spent) = JsonConvert.DeserializeObject<(string, Utxo[])>(signContext.context);
 
             // Assert
             // only necessary utxo are used
-            var inputAmount = GetInputAmount(Assert.Single(tx.Inputs));
+            var inputAmount = Assert.Single(spent).Amount;
             // returns correct change and sends correct amount
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(from) && vout.Value == inputAmount - amount - Constants.DefaultFee);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(to) && vout.Value == amount);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from && vout.Value == inputAmount - amount - Constants.DefaultFee);
+            Assert.Contains(signContext.outputs, vout => vout.Key == to && vout.Value == amount);
         }
 
         [Fact]
@@ -158,21 +145,22 @@ namespace Lykke.Service.Zcash.Api.Tests
             var to = hotWallet;
             var from1 = depositWallet1;
             var from2 = depositWallet2;
-            var amount1 = Money.Coins(1);
-            var amount2 = Money.Coins(1);
-            var fees = Constants.DefaultFee.Split(2).ToArray();
+            var amount1 = 0.5m;
+            var amount2 = 1.5m;
+            var fee1 = Constants.DefaultFee / 4;
+            var fee2 = Constants.DefaultFee / 4 * 3;
 
             // Act
             var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from1, to, amount1), (from2, to, amount2));
-            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+            var (tx, spent) = JsonConvert.DeserializeObject<(string, Utxo[])>(signContext.context);
 
             // Assert
             // only necessary utxo are used
-            Assert.Equal(2, tx.Inputs.Count);
+            Assert.Equal(2, spent.Length);
             // returns correct change and sends correct amounts
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(from1) && vout.Value == GetInputAmount(tx.Inputs[0]) - amount1 - fees[0]);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(from2) && vout.Value == GetInputAmount(tx.Inputs[1]) - amount2 - fees[1]);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(to) && vout.Value == amount1 + amount2);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from1 && vout.Value == spent.First(x => x.Address == from1).Amount - amount1 - fee1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from2 && vout.Value == spent.First(x => x.Address == from2).Amount - amount2 - fee2);
+            Assert.Contains(signContext.outputs, vout => vout.Key == to && vout.Value == amount1 + amount2);
         }
 
         [Fact]
@@ -185,22 +173,23 @@ namespace Lykke.Service.Zcash.Api.Tests
             var from2 = hotWallet;
             var to1 = hotWallet;
             var to2 = depositWallet2;
-            var amount1 = Money.Coins(1);
-            var amount2 = Money.Coins(1);
-            var fees = Constants.DefaultFee.Split(2).ToArray();
+            var amount1 = 0.5m; 
+            var amount2 = 1.5m;
+            var fee1 = Constants.DefaultFee / 4;
+            var fee2 = Constants.DefaultFee / 4 * 3;
 
             // Act
             var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from1, to1, amount1), (from2, to2, amount2));
-            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+            var (tx, spent) = JsonConvert.DeserializeObject<(string, Utxo[])>(signContext.context);
 
             // Assert
             // only necessary utxo are used
-            Assert.Equal(2, tx.Inputs.Count);
+            Assert.Equal(2, spent.Length);
             // returns correct change and sends correct amount
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(from1) && vout.Value == GetInputAmount(tx.Inputs[0]) - amount1 - fees[0]);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(from1) && vout.Value == GetInputAmount(tx.Inputs[1]) - amount2 - fees[1]);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(to1) && vout.Value == amount1);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(to2) && vout.Value == amount2);
+            // IMPORTANT: from2 == to1, build optimizes outputs for such cases
+            Assert.Contains(signContext.outputs, vout => vout.Key == from1 && vout.Value == spent.First(x => x.Address == from1).Amount - amount1 - fee1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from2 && vout.Value == spent.First(x => x.Address == from2).Amount - amount2 - fee2 + amount1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == to2 && vout.Value == amount2);
         }
 
         [Fact]
@@ -212,20 +201,20 @@ namespace Lykke.Service.Zcash.Api.Tests
             var from = hotWallet;
             var to1 = depositWallet1;
             var to2 = depositWallet2;
-            var amount1 = Money.Coins(1);
-            var amount2 = Money.Coins(1);
+            var amount1 = 1m;
+            var amount2 = 1m;
 
             // Act
             var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to1, amount1), (from, to2, amount2));
-            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+            var (tx, spent) = JsonConvert.DeserializeObject<(string, Utxo[])>(signContext.context);
 
             // Assert
             // only necessary utxo are used
-            var inputAmount = GetInputAmount(Assert.Single(tx.Inputs));
+            var inputAmount = Assert.Single(spent).Amount;
             // returns correct change and sends correct amount
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(from) && vout.Value == inputAmount - amount1 - amount2 - Constants.DefaultFee);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(to1) && vout.Value == amount1);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(to2) && vout.Value == amount2);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from && vout.Value == inputAmount - amount1 - amount2 - Constants.DefaultFee);
+            Assert.Contains(signContext.outputs, vout => vout.Key == to1 && vout.Value == amount1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == to2 && vout.Value == amount2);
         }
 
         [Fact]
@@ -236,18 +225,18 @@ namespace Lykke.Service.Zcash.Api.Tests
             var subtractFee = true;
             var from = depositWallet1;
             var to = hotWallet;
-            var amount = Money.Coins(1);
+            var amount = 1m;
 
             // Act
             var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to, amount));
-            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+            var (tx, spent) = JsonConvert.DeserializeObject<(string, Utxo[])>(signContext.context);
 
             // Assert
             // only necessary utxo are used
-            var inputAmount = GetInputAmount(Assert.Single(tx.Inputs));
+            var inputAmount = Assert.Single(spent).Amount;
             // returns correct change and sends correct amount
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(depositWallet1) && vout.Value == inputAmount - amount);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(hotWallet) && vout.Value == amount - Constants.DefaultFee);
+            Assert.Contains(signContext.outputs, vout => vout.Key == depositWallet1 && vout.Value == inputAmount - amount);
+            Assert.Contains(signContext.outputs, vout => vout.Key == hotWallet && vout.Value == amount - Constants.DefaultFee);
         }
 
         [Fact]
@@ -259,20 +248,20 @@ namespace Lykke.Service.Zcash.Api.Tests
             var to = hotWallet;
             var from1 = depositWallet1;
             var from2 = depositWallet2;
-            var amount1 = Money.Coins(1);
-            var amount2 = Money.Coins(1);
+            var amount1 = 1m;
+            var amount2 = 1m;
 
             // Act
             var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from1, to, amount1), (from2, to, amount2));
-            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+            var (tx, spent) = JsonConvert.DeserializeObject<(string, Utxo[])>(signContext.context);
 
             // Assert
             // only necessary utxo are used
-            Assert.Equal(2, tx.Inputs.Count);
+            Assert.Equal(2, spent.Length);
             // returns correct change and sends correct amounts
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(from1) && vout.Value == GetInputAmount(tx.Inputs[0]) - amount1);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(from2) && vout.Value == GetInputAmount(tx.Inputs[1]) - amount2);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(to) && vout.Value == amount1 + amount2 - Constants.DefaultFee);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from1 && vout.Value == spent.First(x => x.Address == from1).Amount - amount1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from2 && vout.Value == spent.First(x => x.Address == from2).Amount - amount2);
+            Assert.Contains(signContext.outputs, vout => vout.Key == to && vout.Value == amount1 + amount2 - Constants.DefaultFee);
         }
 
         [Fact]
@@ -285,22 +274,23 @@ namespace Lykke.Service.Zcash.Api.Tests
             var from2 = hotWallet;
             var to1 = hotWallet;
             var to2 = depositWallet2;
-            var amount1 = Money.Coins(1);
-            var amount2 = Money.Coins(1);
-            var fees = Constants.DefaultFee.Split(2).ToArray();
+            var amount1 = 0.5m;
+            var amount2 = 1.5m;
+            var fee1 = Constants.DefaultFee / 4;
+            var fee2 = Constants.DefaultFee / 4 * 3;
 
             // Act
             var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from1, to1, amount1), (from2, to2, amount2));
-            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+            var (tx, spent) = JsonConvert.DeserializeObject<(string, Utxo[])>(signContext.context);
 
             // Assert
             // only necessary utxo are used
-            Assert.Equal(2, tx.Inputs.Count);
+            Assert.Equal(2, spent.Length);
             // returns correct change and sends correct amount
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(from1) && vout.Value == GetInputAmount(tx.Inputs[0]) - amount1);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(from1) && vout.Value == GetInputAmount(tx.Inputs[1]) - amount2);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(to1) && vout.Value == amount1 - fees[0]);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(to2) && vout.Value == amount2 - fees[1]);
+            // IMPORTANT: from2 == to1, build optimizes outputs for such cases
+            Assert.Contains(signContext.outputs, vout => vout.Key == from1 && vout.Value == spent.First(x => x.Address == from1).Amount - amount1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from2 && vout.Value == spent.First(x => x.Address == from2).Amount - amount2 + amount1 - fee1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == to2 && vout.Value == amount2 - fee2);
         }
 
         [Fact]
@@ -312,22 +302,22 @@ namespace Lykke.Service.Zcash.Api.Tests
             var from = hotWallet;
             var to1 = depositWallet1;
             var to2 = depositWallet2;
-            var amount1 = Money.Coins(1);
-            var amount2 = Money.Coins(1);
-            var fees = Constants.DefaultFee.Split(2).ToArray();
+            var amount1 = 0.5m;
+            var amount2 = 1.5m;
+            var fee1 = Constants.DefaultFee / 4;
+            var fee2 = Constants.DefaultFee / 4 * 3;
 
             // Act
             var signContext = await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to1, amount1), (from, to2, amount2));
-            var (tx, coins) = Serializer.ToObject<(Transaction, ICoin[])>(signContext);
+            var (tx, spent) = JsonConvert.DeserializeObject<(string, Utxo[])>(signContext.context);
 
             // Assert
             // only necessary utxo are used
-            var inputAmount = GetInputAmount(Assert.Single(tx.Inputs));
+            var inputAmount = Assert.Single(spent).Amount;
             // returns correct change and sends correct amount
-
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(from) && vout.Value == inputAmount - amount1 - amount2);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(to1) && vout.Value == amount1 - fees[0]);
-            Assert.Contains(tx.Outputs, vout => vout.IsTo(to2) && vout.Value == amount2 - fees[1]);
+            Assert.Contains(signContext.outputs, vout => vout.Key == from && vout.Value == inputAmount - amount1 - amount2);
+            Assert.Contains(signContext.outputs, vout => vout.Key == to1 && vout.Value == amount1 - fee1);
+            Assert.Contains(signContext.outputs, vout => vout.Key == to2 && vout.Value == amount2 - fee2);
         }
 
         [Theory]
@@ -340,18 +330,32 @@ namespace Lykke.Service.Zcash.Api.Tests
             var subtractFee = false;
             var from = depositWallet1;
             var to = hotWallet;
-            var amount = Money.Coins(amountValue);
+            var amount = amountValue;
 
             // Act
 
             // Assert
-            await Assert.ThrowsAsync<NotEnoughFundsException>(async () =>
+            await Assert.ThrowsAsync<BuildTransactionException>(async () =>
                 await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to, amount)));
         }
-
-        public async Task Test()
+        
+        [Theory]
+        [InlineData(0.00009000)] // a bit less than default fee (result amount is less than 0)
+        [InlineData(0.00010000)] // default fee (result amount is 0)
+        [InlineData(0.00010000 + 0.182 * 3 * 0.000001)] // default fee + relay fee (result amount is relayFee)
+        public async Task Build_ShouldThrowDust(decimal amount)
         {
-            var (transaction, coins) = Serializer.ToObject<(Transaction, ICoin[])>("ewogICJpdGVtMSI6ICIwMTAwMDAwMDAxOWQ2MzQzNjJlNGMzNjcxYTEzOWMzMzUzYjY3NzI2NzJlMmMxMWExMWFmNGI2M2VjMzhmMDYyNmQ0NGEzYzRlNjAwMDAwMDAwNmI0ODMwNDUwMjIxMDA4Yzg2YTMzMDkyZGNlOWNkMTJmNGRkMjRkYThjNmQ3YzdlOWZiMTY5MTEzODY4NzhjOTQ1Y2VjN2ViNjM3YmNmMDIyMDc2ZDAyNTViNTZjN2RkODU2ZmI1OGJlNWI4MDE0Zjk5M2M5NmJkZmY2YTYyYzAyZTgxODRlMTUwMDI2MjRiNDkwMTIxMDIyMzA2MTJlZDlmZDg4NjVhMDExNTY4NWNiYzY2MDNkNWQxYmYxM2E4ZTkyZWI3MGRiMzEyYWYxNjYwNzQzMGZhZmZmZmZmZmYwMjM0N2JkODExMDAwMDAwMDAxOTc2YTkxNDIwZWM0MDFmMmQxZTI3ZjEyZGM1MjRjNmY2ODMwYTU4OWNjOTM4Yjk4OGFjNTY3ZDAxMDAwMDAwMDAwMDE5NzZhOTE0NTk1ZmJmZGVkYzk4NDU4Y2VlOTUyYzRjMTYwZTNjNzRjNGNhNzNmZjg4YWMwMDAwMDAwMCIsCiAgIml0ZW0yIjogWwogICAgewogICAgICAidHJhbnNhY3Rpb25JZCI6ICJlNmM0YTM0NDZkNjJmMDM4ZWM2MzRiYWYxMTFhYzFlMjcyMjY3N2I2NTMzMzljMTMxYTY3YzNlNDYyNDM2MzlkIiwKICAgICAgImluZGV4IjogMCwKICAgICAgInZhbHVlIjogMjk5NDk5OTkwLAogICAgICAic2NyaXB0UHViS2V5IjogIjc2YTkxNDIwZWM0MDFmMmQxZTI3ZjEyZGM1MjRjNmY2ODMwYTU4OWNjOTM4Yjk4OGFjIiwKICAgICAgInJlZGVlbVNjcmlwdCI6IG51bGwKICAgIH0KICBdCn0=".Base64ToString());
+            // Arrange
+            var type = OperationType.SingleFromSingleTo;
+            var subtractFee = true;
+            var from = depositWallet1;
+            var to = hotWallet;
+
+            // Act
+
+            // Assert
+            await Assert.ThrowsAsync<BuildTransactionException>(async () =>
+                await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to, amount)));
         }
     }
 }

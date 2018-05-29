@@ -61,13 +61,23 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Addresses
             return await _historyAddressesStorage.DeleteIfExistAsync(partitionKey, rowKey);
         }
 
-        public async Task<(IEnumerable<string> items, string continuation)> GetBalanceAddressesChunkAsync(string continuation = null, int take = 100)
+        public async Task<(string continuation, IEnumerable<string> items)> GetBalanceAddressesChunkAsync(string continuation = null, int take = 100)
         {
             var chunk = await _balanceAddressesStorage.GetDataWithContinuationTokenAsync(take, continuation);
 
             return (
-                chunk.Entities.Select(e => e.PartitionKey).ToArray(), 
-                chunk.ContinuationToken
+                chunk.ContinuationToken,
+                chunk.Entities.Select(e => e.PartitionKey).ToArray()
+            );
+        }
+
+        public async Task<(string continuation, IEnumerable<string> items)> GetHistoryAddressesChunkAsync(string continuation = null, int take = 100)
+        {
+            var chunk = await _historyAddressesStorage.GetDataWithContinuationTokenAsync(take, continuation);
+
+            return (
+                chunk.ContinuationToken,
+                chunk.Entities.Select(e => e.PartitionKey).ToArray()
             );
         }
 

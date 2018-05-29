@@ -13,7 +13,9 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Addresses
 
         Task<bool> DeleteHistoryAddressIfExistsAsync(string address, HistoryAddressCategory category);
 
-        Task<(IEnumerable<string> items, string continuation)> GetBalanceAddressesChunkAsync(string continuation = null, int take = 100);
+        Task<(string continuation, IEnumerable<string> items)> GetBalanceAddressesChunkAsync(string continuation = null, int take = 100);
+
+        Task<(string continuation, IEnumerable<string> items)> GetHistoryAddressesChunkAsync(string continuation = null, int take = 100);
 
         Task<bool> IsBalanceAddressExistsAsync(string address);
 
