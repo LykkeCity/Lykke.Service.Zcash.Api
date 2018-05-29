@@ -1,38 +1,28 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using NBitcoin;
-using NBitcoin.DataEncoders;
+﻿using Newtonsoft.Json;
 
 namespace Lykke.Service.Zcash.Api.Services.Models
 {
     public class Utxo
     {
+        [JsonProperty("txid")]
         public string TxId { get; set; }
+
+        [JsonProperty("vout")]
         public uint Vout { get; set; }
+
+        [JsonProperty("address")]
         public string Address { get; set; }
+
+        [JsonProperty("scriptPubKey")]
         public string ScriptPubKey { get; set; }
+
+        [JsonProperty("redeemScript")]
+        public string RedeemScript { get; set; }
+
+        [JsonProperty("amount")]
         public decimal Amount { get; set; }
+
+        [JsonProperty("confirmations")]
         public long Confirmations { get; set; }
-
-        public Money Money
-        {
-            get { return Money.Coins(Amount); }
-        }
-
-        public ICoin AsCoin()
-        {
-            return new Coin(uint256.Parse(TxId), Vout, Money, new Script(Encoders.Hex.DecodeData(ScriptPubKey)));
-        }
-
-        public OutPoint AsOutPoint()
-        {
-            return new OutPoint(uint256.Parse(TxId), Vout);
-        }
-
-        public TxIn AsTxIn()
-        {
-            return new TxIn(AsOutPoint());
-        }
     }
 }
