@@ -53,6 +53,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                 Fee = fee,
                 SubtractFee = subtractFee,
                 AssetId = assetId,
+                Type = type,
                 State = OperationState.Built,
                 BuiltUtc = DateTime.UtcNow,
                 Items = operationItemEntities
@@ -66,7 +67,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
         }
 
         public async Task<IOperation> UpdateAsync(Guid operationId,
-            DateTime? sentUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, DateTime? deletedUtc = null,
+            DateTime? sentUtc = null, DateTime? minedUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, DateTime? deletedUtc = null,
             string hash = null, string error = null)
         {
             var partitionKey = GetOperationPartitionKey(operationId);
@@ -80,6 +81,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                     sentUtc.HasValue ? OperationState.Sent :
                     e.State;
                 e.SentUtc = sentUtc ?? e.SentUtc;
+                e.MinedUtc = minedUtc ?? e.MinedUtc;
                 e.CompletedUtc = completedUtc ?? e.CompletedUtc;
                 e.FailedUtc = failedUtc ?? e.FailedUtc;
                 e.DeletedUtc = deletedUtc ?? e.DeletedUtc;

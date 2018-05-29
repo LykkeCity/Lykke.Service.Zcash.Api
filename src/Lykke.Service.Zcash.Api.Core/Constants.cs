@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using Lykke.Service.Zcash.Api.Core.Domain;
-using NBitcoin;
 
 namespace Lykke.Service.Zcash.Api.Core
 {
@@ -11,6 +10,6 @@ namespace Lykke.Service.Zcash.Api.Core
             [Asset.Zec.Id] = Asset.Zec
         };
 
-        public static readonly Money DefaultFee = Money.Coins(0.00010000M);
+        public static readonly decimal DefaultFee = 0.00010000M;
     }
 }

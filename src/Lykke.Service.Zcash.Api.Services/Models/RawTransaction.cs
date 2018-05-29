@@ -84,6 +84,7 @@ namespace Lykke.Service.Zcash.Api.Services.Models
             public uint Vout { get; set; }
             public decimal Value { get; set; }
             public string[] Addresses { get; set; }
+            public ScriptSig ScriptSig { get; set; }
         }
 
         public class Output
@@ -96,6 +97,12 @@ namespace Lykke.Service.Zcash.Api.Services.Models
         public class ScriptPubKey
         {
             public string[] Addresses { get; set; }
+        }
+
+        public class ScriptSig
+        {
+            public string Asm { get; set; }
+            public string Hex { get; set; }
         }
     }
 }

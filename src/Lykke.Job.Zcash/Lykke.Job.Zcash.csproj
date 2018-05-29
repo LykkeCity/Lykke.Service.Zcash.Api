@@ -4,18 +4,18 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <Version>1.0.1</Version>
-    <AssemblyName>Lykke.Service.Zcash.Api</AssemblyName>
-    <RootNamespace>Lykke.Service.Zcash.Api</RootNamespace>
+    <AssemblyName>Lykke.Job.Zcash</AssemblyName>
+    <RootNamespace>Lykke.Job.Zcash</RootNamespace>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <DocumentationFile>bin\Release\netcoreapp2.0\Lykke.Service.Zcash.Api.xml</DocumentationFile>
+    <DocumentationFile>bin\Release\netcoreapp2.0\Lykke.Job.Zcash.xml</DocumentationFile>
     <NoWarn>1701;1702;1705;1591</NoWarn>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DocumentationFile>bin\Debug\netcoreapp2.0\Lykke.Service.Zcash.Api.xml</DocumentationFile>
+    <DocumentationFile>bin\Debug\netcoreapp2.0\Lykke.Job.Zcash.xml</DocumentationFile>
     <NoWarn>1701;1702;1705;1591</NoWarn>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>

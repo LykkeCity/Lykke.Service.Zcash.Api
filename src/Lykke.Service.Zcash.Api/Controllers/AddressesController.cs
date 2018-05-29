@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Threading.Tasks;
 using Common;
 using Lykke.Common.Api.Contract.Responses;
@@ -29,7 +29,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
         {
             return new AddressValidationResponse()
             {
-                IsValid = ModelState.IsValidAddress(address)
+                IsValid = ModelState.IsValidAddress(_blockchainService, address)
             };
         }
 

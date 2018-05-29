@@ -1,6 +1,7 @@
 ﻿using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using Common.Log;
+using Lykke.Job.Zcash.PeriodicalHandlers;
 using Lykke.Service.Zcash.Api.AzureRepositories.Addresses;
 using Lykke.Service.Zcash.Api.AzureRepositories.History;
 using Lykke.Service.Zcash.Api.AzureRepositories.Operations;
@@ -18,16 +19,16 @@ using NBitcoin;
 using NBitcoin.RPC;
 using NBitcoin.Zcash;
 
-namespace Lykke.Service.Zcash.Api.Modules
+namespace Lykke.Job.Zcash.Modules
 {
-    public class ServiceModule : Module
+    public class JobModule : Module
     {
         private readonly IReloadingManager<ZcashApiSettings> _settings;
         private readonly ILog _log;
         // NOTE: you can remove it if you don't need to use IServiceCollection extensions to register service specific dependencies
         private readonly IServiceCollection _services;
 
-        public ServiceModule(IReloadingManager<ZcashApiSettings> settings, ILog log)
+        public JobModule(IReloadingManager<ZcashApiSettings> settings, ILog log)
         {
             _settings = settings;
             _log = log;
@@ -94,7 +95,18 @@ namespace Lykke.Service.Zcash.Api.Modules
                 .As<IBlockchainService>()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue));
 
+            RegisterPeriodicalHandlers(builder);
+
             builder.Populate(_services);
+        }
+
+        private void RegisterPeriodicalHandlers(ContainerBuilder builder)
+        {
+            builder.RegisterType<HistoryHandler>()
+                .As<IStartable>()
+                .AutoActivate()
+                .WithParameter(TypedParameter.From(_settings.CurrentValue.IndexInterval))
+                .SingleInstance();
         }
     }
 }
