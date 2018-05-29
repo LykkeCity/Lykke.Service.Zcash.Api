@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Lykke.Service.Zcash.Api.Core.Domain;
@@ -36,8 +36,6 @@ namespace Lykke.Service.Zcash.Api.Core.Services
         Task<bool> TryCreateHistoryAddressAsync(string address, HistoryAddressCategory category);
 
         Task ImportAddress(string address);
-
-        void EnsureSigned(Transaction transaction, ICoin[] coins);
 
         Task<bool> ValidateAddressAsync(string address);
 
