@@ -11,6 +11,8 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Settings
     [ValueTypeMergingStrategy(ValueTypeMergingStrategy.UpdateAlways)]
     public class SettingsEntity : AzureTableEntity, ISettings
     {
+        private int _confirmationLevel;
+
         public SettingsEntity()
         {
         }
@@ -21,7 +23,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Settings
             RowKey = rowKey;
         }
 
-        public int ConfirmationLevel { get; set; }
+        public int ConfirmationLevel { get => _confirmationLevel <= 0 ? 1 : _confirmationLevel; set => _confirmationLevel = value; }
         public string LastBlockHash { get; set; }
         public decimal FeePerKb { get; set; }
         public decimal MaxFee { get; set; }

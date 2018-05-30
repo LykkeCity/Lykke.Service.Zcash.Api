@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Common;
@@ -21,7 +21,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
             }
             else
             {
-                self.AddModelError(nameof(address), "Address must be a valid Zcash transparent (t-) address");
+                self.AddModelError(nameof(address), $"{address} is not a valid Zcash transparent (t-) address");
                 return false;
             }
         }
@@ -48,7 +48,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
             items = new(string from, string to, decimal amount)[1];
             asset = null;
 
-            if (!self.IsValid)
+            if (!self.IsValid ||
+                !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
@@ -107,7 +108,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
             items = new(string from, string to, decimal amount)[request.Inputs.Count];
             asset = null;
 
-            if (!self.IsValid)
+            if (!self.IsValid ||
+                !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
@@ -168,7 +170,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
             items = new(string from, string to, decimal amount)[request.Outputs.Count];
             asset = null;
 
-            if (!self.IsValid)
+            if (!self.IsValid ||
+                !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
@@ -206,7 +209,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
                 {
                     try
                     {
-                        items[0].amount = Conversions.CoinsFromContract(request.Outputs[i].Amount, asset.DecimalPlaces);
+                        items[i].amount = Conversions.CoinsFromContract(request.Outputs[i].Amount, asset.DecimalPlaces);
                     }
                     catch (ConversionException ex)
                     {
@@ -224,7 +227,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
             BroadcastTransactionRequest request,
             IBlockchainService blockchainService)
         {
-            if (!self.IsValid)
+            if (!self.IsValid ||
+                !self.IsValidOperationId(request.OperationId))
             {
                 return false;
             }
