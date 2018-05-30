@@ -17,7 +17,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
                 FromAddress = self.FromAddress,
                 Hash = self.Hash,
                 Timestamp = self.TimestampUtc,
-                ToAddress = self.ToAddress
+                ToAddress = self.ToAddress,
+                TransactionType = null
             };
         }
     }

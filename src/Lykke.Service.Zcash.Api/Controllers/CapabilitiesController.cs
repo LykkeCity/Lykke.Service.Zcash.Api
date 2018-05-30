@@ -13,7 +13,11 @@ namespace Lykke.Service.Zcash.Api.Controllers
             {
                 AreManyInputsSupported = true,
                 AreManyOutputsSupported = true,
-                IsTransactionsRebuildingSupported = false
+                IsTransactionsRebuildingSupported = false,
+                IsTestingTransfersSupported = false,
+                IsPublicAddressExtensionRequired = false,
+                IsReceiveTransactionRequired = false,
+                CanReturnExplorerUrl = true
             };
         }
     }

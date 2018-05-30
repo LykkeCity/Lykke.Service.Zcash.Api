@@ -53,8 +53,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             }
         }
 
-        [NonAction]
-        public async Task<IActionResult> Get<TResponse>(Guid operationId, Func<IOperation, TResponse> toResponse)
+        private async Task<IActionResult> Get<TResponse>(Guid operationId, Func<IOperation, TResponse> toResponse)
         {
             if (!ModelState.IsValid ||
                 !ModelState.IsValidOperationId(operationId))
@@ -67,6 +66,54 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return Ok(toResponse(operation));
             else
                 return NoContent();
+        }
+
+        private async Task<IActionResult> Observe(string address, HistoryAddressCategory category)
+        {
+            if (!ModelState.IsValid ||
+                !ModelState.IsValidAddress(_blockchainService, address))
+            {
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
+            }
+
+            if (await _blockchainService.TryCreateHistoryAddressAsync(address, category))
+                return Ok();
+            else
+                return StatusCode(StatusCodes.Status409Conflict);
+        }
+
+        private async Task<IActionResult> DeleteObservation(string address, HistoryAddressCategory category)
+        {
+            if (!ModelState.IsValid ||
+                !ModelState.IsValidAddress(_blockchainService, address))
+            {
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
+            }
+
+            if (await _blockchainService.TryDeleteHistoryAddressAsync(address, category))
+                return Ok();
+            else
+                return NoContent();
+        }
+
+        private async Task<IActionResult> GetHistory(string address, string afterHash, int take, HistoryAddressCategory category)
+        {
+            if (take <= 0)
+            {
+                ModelState.AddModelError(nameof(take), "Must be greater than zero");
+            }
+
+            if (!ModelState.IsValid ||
+                !ModelState.IsValidAddress(_blockchainService, address))
+            {
+                return BadRequest(ModelState.ToBlockchainErrorResponse());
+            }
+
+            var txs = await _blockchainService.GetHistoryAsync(category, address, afterHash, take);
+
+            return Ok(txs
+                .Select(tx => tx.ToHistoricalContract())
+                .ToArray());
         }
 
         [HttpPost("single")]
@@ -82,6 +129,13 @@ namespace Lykke.Service.Zcash.Api.Controllers
             }
 
             return await Build(request.OperationId, OperationType.SingleFromSingleTo, asset, request.IncludeFee, items);
+        }
+
+        [HttpPost("single/receive")]
+        [ProducesResponseType(StatusCodes.Status501NotImplemented)]
+        public IActionResult BuildSingleReceive([FromBody]BuildSingleReceiveTransactionRequest request)
+        {
+            return StatusCode(StatusCodes.Status501NotImplemented);
         }
 
         [HttpPost("many-inputs")]
@@ -194,66 +248,66 @@ namespace Lykke.Service.Zcash.Api.Controllers
                 return NoContent();
         }
 
-        [HttpPost("history/{category}/{address}/observation")]
+        [HttpPost("history/from/{address}/observation")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
-        public async Task<IActionResult> Observe(
-            [FromRoute]HistoryAddressCategory category,
+        public async Task<IActionResult> ObserveFrom(
             [FromRoute]string address)
         {
-            if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(_blockchainService, address))
-            {
-                return BadRequest(ModelState.ToBlockchainErrorResponse());
-            }
-
-            if (await _blockchainService.TryCreateHistoryAddressAsync(address, category))
-                return Ok();
-            else
-                return StatusCode(StatusCodes.Status409Conflict);
+            return await Observe(address, HistoryAddressCategory.From);
         }
 
-        [HttpDelete("history/{category}/{address}/observation")]
+        [HttpPost("history/to/{address}/observation")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> ObserveTo(
+            [FromRoute]string address)
+        {
+            return await Observe(address, HistoryAddressCategory.To);
+        }
+
+        [HttpDelete("history/from/{address}/observation")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
-        public async Task<IActionResult> DeleteObservation(
-            [FromRoute]HistoryAddressCategory category,
+        public async Task<IActionResult> DeleteObservationFrom(
             [FromRoute]string address)
         {
-            if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(_blockchainService, address))
-            {
-                return BadRequest(ModelState.ToBlockchainErrorResponse());
-            }
-
-            if (await _blockchainService.TryDeleteHistoryAddressAsync(address, category))
-                return Ok();
-            else
-                return NoContent();
+            return await DeleteObservation(address, HistoryAddressCategory.From);
         }
 
-        [HttpGet("history/{category}/{address}")]
+        [HttpDelete("history/to/{address}/observation")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
+        public async Task<IActionResult> DeleteObservationTo(
+            [FromRoute]string address)
+        {
+            return await DeleteObservation(address, HistoryAddressCategory.To);
+        }
+
+        [HttpGet("history/from/{address}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(HistoricalTransactionContract[]))]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
-        public async Task<IActionResult> GetHistory(
-            [FromRoute]HistoryAddressCategory category,
+        public async Task<IActionResult> GetHistoryFrom(
             [FromRoute]string address,
             [FromQuery]string afterHash,
             [FromQuery]int take)
         {
-            if (!ModelState.IsValid ||
-                !ModelState.IsValidAddress(_blockchainService, address))
-            {
-                return BadRequest(ModelState.ToBlockchainErrorResponse());
-            }
+            return await GetHistory(address, afterHash, take, HistoryAddressCategory.From);
+        }
 
-            var txs = await _blockchainService.GetHistoryAsync(category, address, afterHash, take);
-
-            return Ok(txs
-                .Select(tx => tx.ToHistoricalContract())
-                .ToArray());
+        [HttpGet("history/to/{address}")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(HistoricalTransactionContract[]))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorResponse))]
+        public async Task<IActionResult> GetHistoryTo(
+            [FromRoute]string address,
+            [FromQuery]string afterHash,
+            [FromQuery]int take)
+        {
+            return await GetHistory(address, afterHash, take, HistoryAddressCategory.To);
         }
     }
 }

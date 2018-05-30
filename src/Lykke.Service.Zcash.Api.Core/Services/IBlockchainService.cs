@@ -35,6 +35,8 @@ namespace Lykke.Service.Zcash.Api.Core.Services
 
         Task<bool> TryCreateHistoryAddressAsync(string address, HistoryAddressCategory category);
 
+        string[] GetExplorerUrl(string address);
+
         Task ImportAddress(string address);
 
         Task<bool> ValidateAddressAsync(string address);

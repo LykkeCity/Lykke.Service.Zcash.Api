@@ -77,7 +77,7 @@ namespace Lykke.Service.Zcash.Api.Modules
                 .WithParameter(TypedParameter.From(_settings.Nested(s => s.Db.DataConnString)))
                 .SingleInstance();
 
-            ZcashNetworks.Register();
+            ZcashNetworks.Instance.EnsureRegistered();
 
             builder.RegisterInstance(Network.GetNetwork(_settings.CurrentValue.NetworkType))
                 .As<Network>();
