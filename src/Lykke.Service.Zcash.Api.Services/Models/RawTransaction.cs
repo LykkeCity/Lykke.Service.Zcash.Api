@@ -14,6 +14,7 @@ namespace Lykke.Service.Zcash.Api.Services.Models
         public string BlockHash { get; set; }
         public uint BlockTime { get; set; }
         public long Confirmations { get; set; }
+        public uint ExpiryHeight { get; set; }
 
         public RawTransactionAction[] GetActions()
         {
