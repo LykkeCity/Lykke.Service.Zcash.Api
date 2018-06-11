@@ -17,7 +17,7 @@ foreach ($e in $entities) {
     $rk = $e.RowKey
     $currentValue = $e.Block
     $e.Block = $height
-    $e | Update-AzureStorageTableRow -table $storageTable
+    $e | Update-AzureStorageTableRow -table $storageTable > $null # avoid output to console
     Write-Host "$pk $rk $currentValue -> $height"
 }
 
