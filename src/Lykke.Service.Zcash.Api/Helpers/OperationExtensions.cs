@@ -16,13 +16,13 @@ namespace Lykke.Service.Zcash.Api.Helpers
             return new BroadcastedSingleTransactionResponse
             {
                 Amount = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
-                Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
+                Fee = Conversions.CoinsToContract(self.Fee, Constants.Assets[self.AssetId].DecimalPlaces),
                 Error = self.Error,
                 Hash = self.Hash,
                 OperationId = self.OperationId,
                 State = self.State.ToBroadcastedState(),
                 Timestamp = self.TimestampUtc,
-                Block = new DateTimeOffset(self.TimestampUtc).ToUnixTimeSeconds(),
+                Block = self.Block ?? 0,
             };
         }
 
@@ -37,8 +37,8 @@ namespace Lykke.Service.Zcash.Api.Helpers
                 OperationId = self.OperationId,
                 State = self.State.ToBroadcastedState(),
                 Timestamp = self.TimestampUtc,
-                Block = new DateTimeOffset(self.TimestampUtc).ToUnixTimeSeconds(),
-                Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
+                Block = self.Block ?? 0,
+                Fee = Conversions.CoinsToContract(self.Fee, Constants.Assets[self.AssetId].DecimalPlaces),
                 Inputs = self.Items
                     .Select(x => new BroadcastedTransactionInputContract { Amount = Conversions.CoinsToContract(x.Amount, Constants.Assets[self.AssetId].DecimalPlaces), FromAddress = x.FromAddress })
                     .ToArray()
@@ -55,9 +55,9 @@ namespace Lykke.Service.Zcash.Api.Helpers
                 Hash = self.Hash,
                 OperationId = self.OperationId,
                 State = self.State.ToBroadcastedState(),
-                Timestamp = (self.SentUtc ?? self.CompletedUtc ?? self.FailedUtc).Value,
-                Block = new DateTimeOffset(self.TimestampUtc).ToUnixTimeSeconds(),
-                Fee = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
+                Timestamp = self.TimestampUtc,
+                Block = self.Block ?? 0,
+                Fee = Conversions.CoinsToContract(self.Fee, Constants.Assets[self.AssetId].DecimalPlaces),
                 Outputs = self.Items
                     .Select(x => new BroadcastedTransactionOutputContract { Amount = Conversions.CoinsToContract(x.Amount, Constants.Assets[self.AssetId].DecimalPlaces), ToAddress = x.ToAddress })
                     .ToArray()

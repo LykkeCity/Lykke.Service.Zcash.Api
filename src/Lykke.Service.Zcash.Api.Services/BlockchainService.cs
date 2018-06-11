@@ -218,36 +218,33 @@ namespace Lykke.Service.Zcash.Api.Services
                                      where t.Category == receiveCategory || t.Category == sendCategory
                                      where t.Confirmations >= settings.ConfirmationLevel
                                      group t by t.TxId into g
-                                     select new
-                                     {
-                                         TimestampUtc = g.First().BlockTime.FromUnixDateTime(),
-                                         Hash = g.Key,
-                                     };
+                                     select g.Key;
 
             var recorded = 0;
 
-            foreach (var transaction in recentTransactions)
+            foreach (var hash in recentTransactions)
             {
                 var transactionActions = new RawTransactionAction[0];
-
-                var operation = await _operationRepository.GetAsync(transaction.Hash);
+                var raw = await GetRawTransactionAsync(hash);
+                var timestamp = raw.BlockTime.FromUnixDateTime();
+                var operation = await _operationRepository.GetAsync(hash);
 
                 if (operation != null)
                 {
-                    await _operationRepository.UpdateAsync(operation.OperationId, minedUtc: transaction.TimestampUtc, completedUtc: DateTime.UtcNow);
+                    await _operationRepository.UpdateAsync(operation.OperationId, minedUtc: timestamp, completedUtc: DateTime.UtcNow, block: raw.Block.Height);
 
                     transactionActions = operation.GetRawTransactionActions();
                 }
                 else
                 {
-                    transactionActions = (await GetRawTransactionAsync(transaction.Hash)).GetActions();
+                    transactionActions = raw.GetActions();
                 }
 
                 foreach (var action in transactionActions)
                 {
                     if (await _addressRepository.IsHistoryAddressExistsAsync(action.AffectedAddress, action.Category))
                     {
-                        await _historyRepository.UpsertAsync(action.Category, action.AffectedAddress, transaction.TimestampUtc, transaction.Hash,
+                        await _historyRepository.UpsertAsync(action.Category, action.AffectedAddress, timestamp, hash,
                             operation?.OperationId, action.FromAddress, action.ToAddress, action.Amount, action.AssetId);
 
                         recorded++;
@@ -293,6 +290,8 @@ namespace Lykke.Service.Zcash.Api.Services
         {
             var settings = await LoadStoredSettingsAsync();
             var balances = new List<AddressBalance>();
+            var info = await _blockchainReader.GetInfoAsync();
+            var confirmedBlock = info.Blocks - (uint)settings.ConfirmationLevel + 1;
 
             do
             {
@@ -304,16 +303,12 @@ namespace Lykke.Service.Zcash.Api.Services
 
                     foreach (var group in utxo.GroupBy(x => x.Address))
                     {
-                        var lastTx = await GetRawTransactionAsync(
-                            group.OrderByDescending(x => x.Confirmations).First().TxId,
-                            restoreInputs: false);
-
                         balances.Add(new AddressBalance
                         {
                             Address = group.Key,
                             Balance = group.Sum(x => x.Amount),
                             Asset = Asset.Zec,
-                            BlockTime = lastTx.BlockTime
+                            Block = confirmedBlock
                         });
                     }
                 }
@@ -392,7 +387,7 @@ namespace Lykke.Service.Zcash.Api.Services
             }
         }
 
-        public async Task<RawTransaction> GetRawTransactionAsync(string transactionHash, bool restoreInputs = true)
+        public async Task<RawTransaction> GetRawTransactionAsync(string transactionHash, bool restoreInputs = true, bool restoreBlock = true)
         {
             async Task<RawTransaction> InternalGet(string hash)
             {
@@ -420,6 +415,11 @@ namespace Lykke.Service.Zcash.Api.Services
                     vin.Addresses = vout.ScriptPubKey.Addresses;
                     vin.Value = vout.Value;
                 }
+            }
+
+            if (restoreBlock)
+            {
+                curr.Block = await _blockchainReader.GetBlockAsync(curr.BlockHash);
             }
 
             return curr;

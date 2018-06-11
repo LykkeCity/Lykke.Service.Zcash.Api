@@ -88,7 +88,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
 
             return Ok();
         }
-
+        
         [HttpGet("{address}/explorer-url")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(string[]))]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(BlockchainErrorResponse))]
@@ -99,7 +99,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
             {
                 return BadRequest(ModelState.ToBlockchainErrorResponse());
             }
-
+                
             return Ok(_blockchainService.GetExplorerUrl(address));
         }
     }
