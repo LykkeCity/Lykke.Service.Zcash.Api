@@ -54,10 +54,6 @@ Required, must be quoted. Connection string to storage account with `EnrolledBal
 
 Optional. By default is `Zcash`.
 
-#### `-balanceTable <Table where balances are stored>`
-
-Optional. By default is `EnrolledBalance`.
-
-#### `-height <New Block field value>`
+#### `-value <New Block field value>`
 
 Optional. By default is `0`.
