@@ -57,3 +57,7 @@ Optional. By default is `Zcash`.
 #### `-value <New Block field value>`
 
 Optional. By default is `0`.
+
+#### `-minCashin <Minimal cashin amount>`
+
+Optional. By default is `0`. If current enrolled balance is greater than minimal cashin then row is skipped and balance block is not reset.
