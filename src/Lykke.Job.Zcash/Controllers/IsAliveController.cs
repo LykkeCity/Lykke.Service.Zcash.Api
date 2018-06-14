@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
 using Lykke.Common.Api.Contract.Responses;
 using Lykke.Service.Zcash.Api.Core.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -26,9 +27,9 @@ namespace Lykke.Job.Zcash.Controllers
         [SwaggerOperation("IsAlive")]
         [ProducesResponseType(typeof(IsAliveResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), (int)HttpStatusCode.InternalServerError)]
-        public IActionResult Get()
+        public async Task<IActionResult> Get()
         {
-            var healthViloationMessage = _healthService.GetHealthViolationMessage();
+            var healthViloationMessage = await _healthService.GetHealthViolationMessage();
             if (healthViloationMessage != null)
             {
                 return StatusCode(
@@ -47,7 +48,7 @@ namespace Lykke.Job.Zcash.Controllers
 #else
                 IsDebug = false,
 #endif
-                IssueIndicators = _healthService.GetHealthIssues()
+                IssueIndicators = (await _healthService.GetHealthIssues())
                     .Select(i => new IsAliveResponse.IssueIndicator
                     {
                         Type = i.Type,
