@@ -176,11 +176,14 @@ namespace Lykke.Service.Zcash.Api.Services
             }
             catch (NBitcoin.RPC.RPCException ex) when (ex.RPCCode == NBitcoin.RPC.RPCErrorCode.RPC_VERIFY_REJECTED)
             {
+                var errorMessage = "Transaction rejected";
+
                 await _operationRepository.UpdateAsync(operationId, 
-                    failedUtc: DateTime.UtcNow);
+                    failedUtc: DateTime.UtcNow,
+                    error: $"{errorMessage}: {ex.Message}");
                   
                 await _log.WriteWarningAsync(nameof(BroadcastAsync), $"Operation: {operationId}", 
-                    "Transaction rejected", ex);
+                    errorMessage, ex);
             }
         }
 
@@ -261,14 +264,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
             var lastBlock = await _blockchainReader.GetBlockAsync(recent.LastBlock);
 
-            var expiredOperations = await _operationRepository.GetExpiredAsync(lastBlock.Height);
-
-            foreach (var id in expiredOperations)
-            {
-                await _operationRepository.UpdateAsync(id, failedUtc: DateTime.UtcNow);
-
-                await _log.WriteWarningAsync(nameof(HandleHistoryAsync), $"Operation: {id}", "Transaction expired");
-            }
+            await _operationRepository.UpdateExpiredAsync(lastBlock.Height);
 
             await SaveStoredSettingsAsync(recent.LastBlock);
 

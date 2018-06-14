@@ -18,6 +18,6 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 
         Task<IOperation> GetAsync(string hash, bool loadItems = true);
 
-        Task<IEnumerable<Guid>> GetExpiredAsync(uint expiryHeight);
+        Task UpdateExpiredAsync(uint expiryHeight);
     }
 }
