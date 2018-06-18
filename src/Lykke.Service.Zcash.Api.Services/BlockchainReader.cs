@@ -1,6 +1,5 @@
-﻿using System.Collections;
+﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Common.Log;
 using Lykke.Service.Zcash.Api.Services.Models;
@@ -20,6 +19,8 @@ namespace Lykke.Service.Zcash.Api.Services
             _log = log;
             _rpcClient = rpcClient;
         }
+
+        public static Exception Error { get; private set; }
 
         public async Task<Utxo[]> ListUnspentAsync(int confirmationLevel, params string[] addresses)
         {
@@ -78,10 +79,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
         public async Task<T> SendRpcAsync<T>(RPCOperations command, params object[] parameters)
         {
-            var result = await _rpcClient.SendCommandAsync(command, parameters)
-                .ConfigureAwait(false);
-
-            result.ThrowIfError();
+            var result = await SendRpcAsync(command, parameters);
 
             // starting from Overwinter update NBitcoin can not deserialize Zcash transaparent transactions,
             // as well as it has never been able to work with shielded Zcash transactions,
@@ -97,18 +95,23 @@ namespace Lykke.Service.Zcash.Api.Services
                 await _log.WriteErrorAsync(nameof(SendRpcAsync), $"Command: {command}, Response: {result.ResultString}", jex)
                     .ConfigureAwait(false);
 
+                Error = jex;
                 throw;
             }
         }
 
         public async Task<RPCResponse> SendRpcAsync(RPCOperations command, params object[] parameters)
         {
-            var result = await _rpcClient.SendCommandAsync(new RPCRequest(command, parameters), false)
-                .ConfigureAwait(false);
-
-            result.ThrowIfError();
-
-            return result;
+            try
+            {
+                return await _rpcClient.SendCommandAsync(new RPCRequest(command, parameters), true)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Error = ex;
+                throw;
+            }
         }
     }
 }

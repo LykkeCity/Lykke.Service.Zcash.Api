@@ -29,9 +29,9 @@ namespace Lykke.Service.Zcash.Api.Controllers
         [SwaggerOperation("IsAlive")]
         [ProducesResponseType(typeof(IsAliveResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), (int)HttpStatusCode.InternalServerError)]
-        public async Task<IActionResult> Get()
+        public IActionResult Get()
         {
-            var healthViloationMessage = await _healthService.GetHealthViolationMessage();
+            var healthViloationMessage = _healthService.GetHealthViolationMessage();
             if (healthViloationMessage != null)
             {
                 return StatusCode(
@@ -50,7 +50,7 @@ namespace Lykke.Service.Zcash.Api.Controllers
 #else
                 IsDebug = false,
 #endif
-                IssueIndicators = (await _healthService.GetHealthIssues())
+                IssueIndicators = _healthService.GetHealthIssues()
                     .Select(i => new IsAliveResponse.IssueIndicator
                     {
                         Type = i.Type,
