@@ -80,7 +80,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
 
         public async Task<IOperation> UpdateAsync(Guid operationId,
             DateTime? sentUtc = null, DateTime? minedUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, DateTime? deletedUtc = null,
-            string hash = null, string error = null)
+            string hash = null, string error = null, uint? block = null)
         {
             var partitionKey = GetOperationPartitionKey(operationId);
             var rowKey = GetOperationRowKey();
@@ -99,6 +99,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                 e.DeletedUtc = deletedUtc ?? e.DeletedUtc;
                 e.Hash = hash ?? e.Hash;
                 e.Error = error ?? e.Error;
+                e.Block = block ?? e.Block;
                 return e;
             });
 

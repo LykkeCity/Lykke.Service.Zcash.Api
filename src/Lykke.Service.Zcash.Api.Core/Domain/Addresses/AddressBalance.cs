@@ -5,6 +5,6 @@
         public string Address { get; set; }
         public Asset Asset { get; set; }
         public decimal Balance { get; set; }
-        public long BlockTime { get; set; }
+        public uint Block { get; set; }
     }
 }

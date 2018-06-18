@@ -13,7 +13,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
                 Address = self.Address,
                 AssetId = self.Asset.Id,
                 Balance = Conversions.CoinsToContract(self.Balance, self.Asset.DecimalPlaces),
-                Block = self.BlockTime
+                Block = self.Block
             };
         }
     }

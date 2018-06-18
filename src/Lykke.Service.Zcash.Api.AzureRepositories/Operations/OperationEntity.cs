@@ -44,5 +44,6 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
         public decimal Fee { get; set; }
         public bool SubtractFee { get; set; }
         public uint ExpiryHeight { get; set; }
+        public uint? Block { get; set; }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using Lykke.Service.Zcash.Api.Core.Domain.Health;
 
 namespace Lykke.Service.Zcash.Api.Core.Services
