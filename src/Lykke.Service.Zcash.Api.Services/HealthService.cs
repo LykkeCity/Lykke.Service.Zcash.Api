@@ -9,34 +9,24 @@ namespace Lykke.Service.Zcash.Api.Services
     // NOTE: See https://lykkex.atlassian.net/wiki/spaces/LKEWALLET/pages/35755585/Add+your+app+to+Monitoring
     public class HealthService : IHealthService
     {
-        private readonly IBlockchainReader _blockchainReader;
-
-        public HealthService(IBlockchainReader blockchainReader)
-        {
-            _blockchainReader = blockchainReader;
-        }
-
-        public async Task<string> GetHealthViolationMessage()
+        public string GetHealthViolationMessage()
         {
             // TODO: Check gathered health statistics, and return appropriate health violation message, or NULL if service hasn't critical errors
-
-            try
-            {
-                var info = await _blockchainReader.GetInfoAsync();
-            }
-            catch (Exception ex)
-            {
-                return ex.Message;
-            }
 
             return null;
         }
 
-        public async Task<IEnumerable<HealthIssue>> GetHealthIssues()
+        public IEnumerable<HealthIssue> GetHealthIssues()
         {
             var issues = new HealthIssuesCollection();
 
             // TODO: Check gathered health statistics, and add appropriate health issues message to issues
+
+            var blockchainReaderError = BlockchainReader.Error;
+            if (blockchainReaderError != null)
+            {
+                issues.Add(blockchainReaderError.GetType().Name, blockchainReaderError.Message);
+            }
 
             return issues;
         }
