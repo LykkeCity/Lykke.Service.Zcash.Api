@@ -12,7 +12,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
 
         Task<IOperation> UpdateAsync(Guid operationId,
             DateTime? sentUtc = null, DateTime? minedUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, DateTime? deletedUtc = null,
-            string hash = null, string error = null, uint? block = null);
+            string hash = null, string error = null, BlockchainException.ErrorCode? errorCode = null, uint? block = null);
 
         Task<IOperation> GetAsync(Guid operationId, bool loadItems = true);
 

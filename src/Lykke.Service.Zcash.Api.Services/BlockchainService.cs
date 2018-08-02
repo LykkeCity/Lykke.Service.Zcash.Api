@@ -87,7 +87,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
                 if (amount > 0m)
                 {
-                    throw new BuildTransactionException(BuildTransactionException.ErrorCode.NotEnoughFunds, from, amount);
+                    throw new BlockchainException(BlockchainException.ErrorCode.NotEnoughFunds, $"Not enough funds: {{{from}:{amount}}}.");
                 }
 
                 if (amount < 0m)
@@ -125,7 +125,7 @@ namespace Lykke.Service.Zcash.Api.Services
 
                     if (spentAmount < operationAndFeeAmount)
                     {
-                        throw new BuildTransactionException(BuildTransactionException.ErrorCode.NotEnoughFunds, from, operationAndFeeAmount - spentAmount);
+                        throw new BlockchainException(BlockchainException.ErrorCode.NotEnoughFunds, $"Not enough funds: {{{from}:{operationAndFeeAmount - spentAmount}}}.");
                     }
 
                     if (spentAmount > operationAndFeeAmount)
@@ -141,7 +141,7 @@ namespace Lykke.Service.Zcash.Api.Services
                 // times greater than fee required to relay this output
                 if (toAddresses[to] <= 0.182m * 3 * info.RelayFee)
                 {
-                    throw new BuildTransactionException(BuildTransactionException.ErrorCode.Dust, to, toAddresses[to]);
+                    throw new BlockchainException(BlockchainException.ErrorCode.Dust, $"Dust output: {{{to}:{toAddresses[to]}}}.");
                 }
             }
 
@@ -176,14 +176,7 @@ namespace Lykke.Service.Zcash.Api.Services
             }
             catch (NBitcoin.RPC.RPCException ex) when (ex.RPCCode == NBitcoin.RPC.RPCErrorCode.RPC_VERIFY_REJECTED)
             {
-                var errorMessage = "Transaction rejected";
-
-                await _operationRepository.UpdateAsync(operationId, 
-                    failedUtc: DateTime.UtcNow,
-                    error: $"{errorMessage}: {ex.Message}");
-                  
-                await _log.WriteWarningAsync(nameof(BroadcastAsync), $"Operation: {operationId}", 
-                    errorMessage, ex);
+                throw new BlockchainException(BlockchainException.ErrorCode.Rejected, "Transaction rejected");
             }
         }
 
