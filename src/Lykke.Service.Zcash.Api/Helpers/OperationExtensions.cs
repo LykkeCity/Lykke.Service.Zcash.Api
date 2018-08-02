@@ -18,6 +18,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
                 Amount = Conversions.CoinsToContract(self.Amount, Constants.Assets[self.AssetId].DecimalPlaces),
                 Fee = Conversions.CoinsToContract(self.Fee, Constants.Assets[self.AssetId].DecimalPlaces),
                 Error = self.Error,
+                ErrorCode = self.ErrorCode.ToContract(),
                 Hash = self.Hash,
                 OperationId = self.OperationId,
                 State = self.State.ToBroadcastedState(),
@@ -33,6 +34,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
             return new BroadcastedTransactionWithManyInputsResponse
             {
                 Error = self.Error,
+                ErrorCode = self.ErrorCode.ToContract(),
                 Hash = self.Hash,
                 OperationId = self.OperationId,
                 State = self.State.ToBroadcastedState(),
@@ -52,6 +54,7 @@ namespace Lykke.Service.Zcash.Api.Helpers
             return new BroadcastedTransactionWithManyOutputsResponse
             {
                 Error = self.Error,
+                ErrorCode = self.ErrorCode.ToContract(),
                 Hash = self.Hash,
                 OperationId = self.OperationId,
                 State = self.State.ToBroadcastedState(),

@@ -46,10 +46,9 @@ namespace Lykke.Service.Zcash.Api.Controllers
                     TransactionContext = signContext.context.ToBase64()
                 });
             }
-            catch (BuildTransactionException ex)
+            catch (BlockchainException ex)
             {
-                return BadRequest(BlockchainErrorResponse.FromKnownError(ex.Error == BuildTransactionException.ErrorCode.Dust ? 
-                    BlockchainErrorCode.AmountIsTooSmall : BlockchainErrorCode.NotEnoughtBalance));
+                return BadRequest(BlockchainErrorResponse.FromKnownError(ex.Error.ToContract()));
             }
         }
 
@@ -202,8 +201,15 @@ namespace Lykke.Service.Zcash.Api.Controllers
                     ErrorResponse.Create($"Operation is already {Enum.GetName(typeof(OperationState), operation.State).ToLower()}"));
             }
 
-            await _blockchainService.BroadcastAsync(operation.OperationId, request.SignedTransaction);
-            
+            try
+            {
+                await _blockchainService.BroadcastAsync(operation.OperationId, request.SignedTransaction);
+            }
+            catch (BlockchainException ex)
+            {
+                return BadRequest(BlockchainErrorResponse.FromKnownError(ex.Error.ToContract()));
+            }
+
             return Ok();
         }
 

@@ -2,6 +2,7 @@
 using Lykke.AzureStorage.Tables;
 using Lykke.AzureStorage.Tables.Entity.Annotation;
 using Lykke.AzureStorage.Tables.Entity.ValueTypesMerging;
+using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain.Operations;
 using Microsoft.WindowsAzure.Storage.Table;
 
@@ -39,6 +40,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
         public DateTime? DeletedUtc { get; set; }
         public string Hash { get; set; }
         public string Error { get; set; }
+        public BlockchainException.ErrorCode? ErrorCode { get; set; }
         public string AssetId { get; set; }
         public decimal Amount { get; set; }
         public decimal Fee { get; set; }

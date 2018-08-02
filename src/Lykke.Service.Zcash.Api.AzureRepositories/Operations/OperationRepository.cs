@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AzureStorage;
 using AzureStorage.Tables;
 using Common.Log;
+using Lykke.Service.Zcash.Api.Core;
 using Lykke.Service.Zcash.Api.Core.Domain.Operations;
 using Lykke.SettingsReader;
 using Microsoft.WindowsAzure.Storage.Table;
@@ -82,7 +83,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
 
         public async Task<IOperation> UpdateAsync(Guid operationId,
             DateTime? sentUtc = null, DateTime? minedUtc = null, DateTime? completedUtc = null, DateTime? failedUtc = null, DateTime? deletedUtc = null,
-            string hash = null, string error = null, uint? block = null)
+            string hash = null, string error = null, BlockchainException.ErrorCode? errorCode = null, uint? block = null)
         {
             var partitionKey = GetOperationPartitionKey(operationId);
             var rowKey = GetOperationRowKey();
@@ -101,6 +102,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                 e.DeletedUtc = deletedUtc ?? e.DeletedUtc;
                 e.Hash = hash ?? e.Hash;
                 e.Error = error ?? e.Error;
+                e.ErrorCode = errorCode ?? e.ErrorCode;
                 e.Block = block ?? e.Block;
                 return e;
             });
@@ -163,7 +165,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
                     if (operation.State == OperationState.Built ||
                         operation.State == OperationState.Sent)
                     {
-                        await UpdateAsync(operation.OperationId, failedUtc: DateTime.UtcNow, error: errorMessage);
+                        await UpdateAsync(operation.OperationId, failedUtc: DateTime.UtcNow, error: errorMessage, errorCode: BlockchainException.ErrorCode.Expired);
 
                         await _log.WriteWarningAsync(nameof(UpdateExpiredAsync), $"Operation: {entity.RowKey}", errorMessage);
                     }
