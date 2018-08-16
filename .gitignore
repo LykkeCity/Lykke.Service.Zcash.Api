@@ -55,7 +55,8 @@ _NCrunch_*
 
 #some test
 .vs
+.vscode
 node_modules
 **/launchSettings.json
-**/appsettings.*.json
+**/appsettings*.json
 

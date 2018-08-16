@@ -1,1 +1,0 @@
-newman run dash-main-flow.postman_collection.json -e dev.postman_environment.json
