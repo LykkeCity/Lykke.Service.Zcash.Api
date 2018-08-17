@@ -25,7 +25,7 @@ namespace Lykke.Service.Zcash.Api.AzureRepositories.Operations
         public Guid OperationId { get => Guid.Parse(PartitionKey); }
 
         [IgnoreProperty]
-        public DateTime TimestampUtc { get => FailedUtc ?? MinedUtc ?? SentUtc ?? BuiltUtc; }
+        public DateTime TimestampUtc { get => FailedUtc ?? CompletedUtc ?? SentUtc ?? BuiltUtc; }
 
         [IgnoreProperty]
         public IOperationItem[] Items { get; set; }
