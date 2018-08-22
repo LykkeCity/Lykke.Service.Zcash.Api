@@ -16,6 +16,7 @@ namespace Lykke.Service.Zcash.Api.Core.Domain.Operations
         DateTime? DeletedUtc { get; }
         string Hash { get; }
         string Error { get; }
+        BlockchainException.ErrorCode? ErrorCode { get; }
         string AssetId { get; }
         decimal Amount { get; }
         decimal Fee { get; }

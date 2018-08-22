@@ -339,7 +339,7 @@ namespace Lykke.Service.Zcash.Api.Tests
             // Act
 
             // Assert
-            await Assert.ThrowsAsync<BuildTransactionException>(async () =>
+            await Assert.ThrowsAsync<BlockchainException>(async () =>
                 await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to, amount)));
         }
         
@@ -358,7 +358,7 @@ namespace Lykke.Service.Zcash.Api.Tests
             // Act
 
             // Assert
-            await Assert.ThrowsAsync<BuildTransactionException>(async () =>
+            await Assert.ThrowsAsync<BlockchainException>(async () =>
                 await blockhainService.BuildAsync(Guid.NewGuid(), type, Asset.Zec, subtractFee, (from, to, amount)));
         }
     }
