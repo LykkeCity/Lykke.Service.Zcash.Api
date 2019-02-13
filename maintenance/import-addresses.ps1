@@ -33,6 +33,7 @@ function import([string]$apiUrl, [string]$rpcUrl, [string]$rpcUsername, [string]
 
                     if ($resp.result.isvalid -and !$resp.result.ismine -and !$resp.result.iswatchonly) {
                         $body.method = "importaddress"
+                        $body.params = @($chunk.items[$i], "", false)
                         Invoke-WebRequest $rpcUrl -Method Post -Body ($body | ConvertTo-Json) -Headers $headers -ContentType "application/json" > $null
                     }
                 }
