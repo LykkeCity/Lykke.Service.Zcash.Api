@@ -176,6 +176,10 @@ namespace Lykke.Service.Zcash.Api.Services
             }
             catch (NBitcoin.RPC.RPCException ex) when (ex.RPCCode == NBitcoin.RPC.RPCErrorCode.RPC_VERIFY_REJECTED)
             {
+                await _log.WriteWarningAsync(nameof(BroadcastAsync),
+                    $"Transaction: {transaction}, Error: {ex.ToString()}",
+                    $"Transaction rejected");
+
                 throw new BlockchainException(BlockchainException.ErrorCode.Rejected, "Transaction rejected");
             }
         }
