@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Globalization;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -158,7 +159,11 @@ namespace Lykke.Service.Zcash.Api.Services
 
             var raw = await _blockchainReader.DecodeRawTransaction(hex);
 
-            var ctx = JsonConvert.SerializeObject((hex, inputs));
+            var blockchainInfo = await _blockchainReader.GetBlockchainInfo();
+
+            var branchId = uint.Parse(blockchainInfo.Consensus.NextBlock, NumberStyles.HexNumber);
+
+            var ctx = JsonConvert.SerializeObject((hex, inputs, branchId));
 
             await _operationRepository.UpsertAsync(operationId, type, items, fee, subtractFees, asset.Id, raw.ExpiryHeight);
 

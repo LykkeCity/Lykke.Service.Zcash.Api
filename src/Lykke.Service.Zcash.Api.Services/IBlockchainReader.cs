@@ -17,5 +17,6 @@ namespace Lykke.Service.Zcash.Api.Services
         Task<string> CreateRawTransaction(Utxo[] inputs, Dictionary<string, decimal> outputs);
         Task<RawTransaction> DecodeRawTransaction(string transaction);
         Task<Block> GetBlockAsync(string blockHash);
+        Task<BlockchainInfo> GetBlockchainInfo();
     }
 }
