@@ -77,6 +77,11 @@ namespace Lykke.Service.Zcash.Api.Services
             return await SendRpcAsync<Block>(RPCOperations.getblock, blockHash);
         }
 
+        public async Task<Models.BlockchainInfo> GetBlockchainInfo()
+        {
+            return await SendRpcAsync<Models.BlockchainInfo>(RPCOperations.getblockchaininfo);
+        }
+
         public async Task<T> SendRpcAsync<T>(RPCOperations command, params object[] parameters)
         {
             var result = await SendRpcAsync(command, parameters);
