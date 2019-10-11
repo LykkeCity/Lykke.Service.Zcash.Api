@@ -109,6 +109,10 @@ namespace Lykke.Service.Zcash.Api.Tests
                 .Setup(x => x.DecodeRawTransaction(It.IsAny<string>()))
                 .Returns((string hex) => Task.FromResult(new RawTransaction()));
 
+            blockchainReader
+                .Setup(x => x.GetBlockchainInfo())
+                .Returns(() => Task.FromResult(new BlockchainInfo { Consensus = new BlockchainInfo.ConsensusInfo { NextBlock = "76b809bb" } }));
+
             blockhainService = new BlockchainService(log,
                 blockchainReader.Object,
                 addressRepository.Object,
